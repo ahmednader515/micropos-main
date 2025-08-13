@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Disable automatic dark theme variables to keep consistent contrast */
+/* If you want dark mode later, implement explicit theme toggling instead */
+
+/* Increase base font-size on small screens for readability */
+html {
+  font-size: 16px;
+}
+@media (max-width: 640px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+body {
+  color: #111827; /* Tailwind gray-900 */
+  background: var(--background);
+}
+
+/* Ensure form controls default to readable text */
+input, textarea, select, button {
+  color: #111827;
+}
+
+/* RTL Support */
+html[dir="rtl"] {
+  direction: rtl;
+}
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Ensure proper RTL layout for flex containers */
+html[dir="rtl"] .flex {
+  direction: rtl;
+} 
