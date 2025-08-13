@@ -59,7 +59,7 @@ export default function CashboxPage() {
         const data = await response.json()
         setCashboxData(data)
       } else {
-        throw new Error('فشل في جلب بيانات الصندوق')
+        throw new Error('فشل في جلب البيانات')
       }
     } catch (error) {
       showNotification('error', 'فشل في جلب بيانات الصندوق')
