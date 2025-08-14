@@ -8,7 +8,7 @@ export const revalidate = 0
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (isBuildTime()) {
     return NextResponse.json(
@@ -20,7 +20,7 @@ export async function PATCH(
   try {
     await prisma.$connect()
     
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
 
     // Check if product exists
@@ -79,7 +79,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (isBuildTime()) {
     return NextResponse.json(
@@ -91,7 +91,7 @@ export async function DELETE(
   try {
     await prisma.$connect()
     
-    const { id } = params
+    const { id } = await params
 
     // Check if product exists
     const product = await prisma.product.findUnique({
