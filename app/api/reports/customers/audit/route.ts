@@ -138,17 +138,107 @@ export async function GET() {
       </html>
     `
 
-    // Launch Puppeteer and generate PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    })
+    // Detect environment and set appropriate Puppeteer options
+    const isVercel = process.env.VERCEL === '1'
+    const isProduction = process.env.NODE_ENV === 'production'
     
+    console.log('Environment detected:', { isVercel, isProduction })
+    
+    // Launch Puppeteer with environment-optimized settings
+    let browser
+    try {
+      const launchOptions = {
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images',
+          '--disable-javascript',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-software-rasterizer',
+          '--disable-background-networking',
+          '--disable-default-apps',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--mute-audio',
+          '--no-default-browser-check',
+          '--safebrowsing-disable-auto-update',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-ipc-flooding-protection',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection'
+        ],
+        timeout: isVercel ? 25000 : 30000, // Respect Vercel's 30s limit
+        protocolTimeout: isVercel ? 25000 : 30000,
+        ignoreDefaultArgs: ['--disable-extensions'],
+        executablePath: process.env.CHROME_BIN || undefined
+      }
+      
+      console.log('Launching Puppeteer with options:', launchOptions)
+      browser = await puppeteer.launch(launchOptions)
+      
+    } catch (launchError) {
+      console.error('Failed to launch browser with primary options:', launchError)
+      
+      // Fallback: try with minimal options
+      try {
+        console.log('Trying fallback launch options...')
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+          timeout: isVercel ? 25000 : 30000
+        })
+      } catch (fallbackError) {
+        console.error('Failed to launch browser with fallback options:', fallbackError)
+        
+        // Final fallback: try with absolute minimal options
+        try {
+          console.log('Trying final fallback with minimal options...')
+          browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox'],
+            timeout: isVercel ? 20000 : 25000
+          })
+        } catch (finalError) {
+          console.error('All browser launch attempts failed:', finalError)
+          throw new Error(`Browser launch failed after all attempts: ${finalError instanceof Error ? finalError.message : 'Unknown error'}`)
+        }
+      }
+    }
+    
+    if (!browser) {
+      throw new Error('Browser failed to launch')
+    }
+
+    console.log('Browser launched successfully')
     const page = await browser.newPage()
     
+    // Set viewport and user agent for better compatibility
+    await page.setViewport({ width: 1200, height: 800 })
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    
     // Set content and wait for fonts to load
+    console.log('Setting page content...')
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' })
     
+    // Wait a bit more for fonts to render properly
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    console.log('Generating PDF...')
     // Generate PDF with proper settings for Arabic text
     const pdfBuffer = await page.pdf({
       format: 'A4',
@@ -158,7 +248,8 @@ export async function GET() {
         right: '20mm',
         bottom: '20mm',
         left: '20mm'
-      }
+      },
+      timeout: isVercel ? 25000 : 30000
     })
     
     await browser.close()
@@ -174,9 +265,28 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Error generating PDF:', error)
+    
+    // Provide more detailed error information
+    let errorMessage = 'PDF generation failed'
+    let errorDetails = 'Unknown error'
+    
+    if (error instanceof Error) {
+      errorMessage = error.message
+      errorDetails = error.stack || error.message
+    } else if (typeof error === 'string') {
+      errorMessage = error
+      errorDetails = error
+    }
+    
     return new NextResponse(JSON.stringify({ 
-      error: 'PDF generation failed', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      error: errorMessage, 
+      details: errorDetails,
+      timestamp: new Date().toISOString(),
+      environment: {
+        isVercel: process.env.VERCEL === '1',
+        nodeEnv: process.env.NODE_ENV,
+        platform: process.platform
+      }
     }), {
       status: 500,
       headers: {
