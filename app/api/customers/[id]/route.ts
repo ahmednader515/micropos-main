@@ -6,13 +6,14 @@ export const revalidate = 0
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.$connect()
     
     const customer = await prisma.customer.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
     
     await prisma.$disconnect()
@@ -36,9 +37,10 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.$connect()
     
     const body = await request.json()
@@ -71,7 +73,7 @@ export async function PUT(
     const existingByName = await prisma.customer.findFirst({
       where: { 
         name,
-        id: { not: params.id }
+        id: { not: id }
       }
     })
     
@@ -85,7 +87,7 @@ export async function PUT(
       const existingByNumber = await prisma.customer.findFirst({
         where: { 
           customerNumber,
-          id: { not: params.id }
+          id: { not: id }
         }
       })
       
@@ -96,7 +98,7 @@ export async function PUT(
     }
 
     const updated = await prisma.customer.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         customerNumber: customerNumber || null,
         barcode: barcode || null,
