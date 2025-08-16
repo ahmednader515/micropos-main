@@ -1,163 +1,159 @@
 'use client'
 
-import { useEffect, useMemo, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 
-type Bill = { id: string; invoiceNumber: string; supplier?: { id: string; name: string } | null; date: string; total: number; paid: number; remaining: number }
-
-function SuppliersPayablesContent() {
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [supplierId, setSupplierId] = useState('')
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
-  const [rows, setRows] = useState<Bill[]>([])
-  const [summary, setSummary] = useState<{ totalRemaining: number; count: number; bySupplier: { supplierId: string; name: string; remaining: number }[] } | null>(null)
-  const searchParams = useSearchParams()
-  const showSummary = searchParams.get('summary') === '1'
-  const [status, setStatus] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'RETURNED'>('ALL')
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    ;(async () => {
-      const r = await fetch('/api/suppliers')
-      const j = await r.json()
-      setSuppliers((j.suppliers || []).map((s: any) => ({ id: s.id, name: s.name })))
-    })()
-  }, [])
-
-  const load = async () => {
-    setLoading(true)
-    try {
-      const qp = new URLSearchParams()
-      if (from) qp.set('from', from)
-      if (to) qp.set('to', to)
-      if (supplierId) qp.set('supplierId', supplierId)
-      if (status) qp.set('status', status)
-      const r = await fetch(`/api/suppliers/payables?${qp.toString()}`)
-      const j = await r.json()
-      setRows(j.bills || [])
-      setSummary(j.summary || null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const totals = useMemo(() => {
-    let remaining = 0
-    for (const i of rows) remaining += Number(i.remaining || 0)
-    return { remaining: Number(remaining.toFixed(2)) }
-  }, [rows])
-
-  return (
-    <div className="space-y-4" dir="rtl">
-      <div className="bg-white rounded p-4 shadow grid grid-cols-1 md:grid-cols-5 gap-3">
-        <div>
-          <label className="block text-sm mb-1">من</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">إلى</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">المورد</label>
-          <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className="w-full border rounded px-3 py-2">
-            <option value="">الكل</option>
-            {suppliers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">الحالة</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full border rounded px-3 py-2">
-            <option value="ALL">الكل</option>
-            <option value="PENDING">معلق</option>
-            <option value="COMPLETED">مكتمل</option>
-            <option value="CANCELLED">ملغي</option>
-            <option value="RETURNED">مرتجع</option>
-          </select>
-        </div>
-        <div className="flex items-end justify-end">
-          <button onClick={load} className="px-4 py-2 bg-blue-600 text-white rounded">عرض</button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-6"><div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"/></div>
-      ) : (
-        <div className="bg-white rounded shadow overflow-x-auto">
-          {!showSummary ? (
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-3 py-2 text-right">التاريخ</th>
-                  <th className="px-3 py-2 text-right">الفاتورة</th>
-                  <th className="px-3 py-2 text-right">المورد</th>
-                  <th className="px-3 py-2 text-right">الإجمالي</th>
-                  <th className="px-3 py-2 text-right">المدفوع</th>
-                  <th className="px-3 py-2 text-right">المتبقي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => (
-                  <tr key={i.id} className="border-t">
-                    <td className="px-3 py-2">{new Date(i.date).toLocaleDateString('ar')}</td>
-                    <td className="px-3 py-2">{i.invoiceNumber}</td>
-                    <td className="px-3 py-2">{i.supplier?.name || '-'}</td>
-                    <td className="px-3 py-2">{Number(i.total).toFixed(2)}</td>
-                    <td className="px-3 py-2">{Number(i.paid).toFixed(2)}</td>
-                    <td className="px-3 py-2">{Number(i.remaining).toFixed(2)}</td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr><td className="px-3 py-6 text-center" colSpan={6}>لا توجد بيانات</td></tr>
-                )}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="px-3 py-2" colSpan={5}>الإجمالي المتبقي</td>
-                  <td className="px-3 py-2">{totals.remaining.toFixed(2)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          ) : (
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-3 py-2 text-right">المورد</th>
-                  <th className="px-3 py-2 text-right">المتبقي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary?.bySupplier?.map((c) => (
-                  <tr key={c.supplierId} className="border-t">
-                    <td className="px-3 py-2">{c.name}</td>
-                    <td className="px-3 py-2">{Number(c.remaining).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="px-3 py-2">الإجمالي المتبقي</td>
-                  <td className="px-3 py-2">{Number(summary?.totalRemaining || 0).toFixed(2)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
-      )}
-    </div>
-  )
+interface Supplier {
+  id: string
+  name: string
+  balance: number
+  phone?: string | null
+  email?: string | null
+  address?: string | null
 }
 
-export default function SuppliersPayablesPage() {
+export default function SupplierPayablesPage() {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch('/api/suppliers', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          const list: Supplier[] = (data.suppliers || []).map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            balance: typeof s.balance === 'number' ? s.balance : Number(s.balance || 0),
+            phone: s.phone ?? null,
+            email: s.email ?? null,
+            address: s.address ?? null,
+          }))
+          setSuppliers(list)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSuppliers()
+  }, [])
+
+  const payables = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return suppliers
+      .filter((s) => s.balance > 0) // Only suppliers with positive balance (payables)
+      .filter((s) =>
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        (s.phone ?? '').toLowerCase().includes(q) ||
+        (s.email ?? '').toLowerCase().includes(q) ||
+        (s.address ?? '').toLowerCase().includes(q)
+      )
+  }, [suppliers, search])
+
+  const formatAmount = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  function PayablesNavbar() {
+    return (
+      <div className="sticky top-0 z-30 bg-white shadow-sm flex items-center justify-between px-2 py-2 lg:hidden" dir="rtl">
+        <button
+          onClick={() => window.history.back()}
+          className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 px-2"
+          style={{ minWidth: 40 }}
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 7l-7 7 7 7" />
+          </svg>
+        </button>
+        <div className="flex-1 flex justify-center">
+          <h1 className="text-[10px] font-medium text-gray-900 truncate">ذمم الموردين - المبالغ المتبقية عند الموردين من الفواتير</h1>
+        </div>
+        <span className="text-xl px-2">🧾</span>
+      </div>
+    )
+  }
+
   return (
-    <MainLayout navbarTitle="المبالغ المتبقية للموردين" onBack={() => history.back()}>
-      <Suspense fallback={<div className="flex justify-center py-6"><div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"/></div>}>
-        <SuppliersPayablesContent />
-      </Suspense>
+    <MainLayout hideNavbar={true}>
+      <div dir="rtl">
+        <PayablesNavbar />
+
+        <div className="max-w-3xl mx-auto mt-4">
+          <div className="flex gap-2 items-center mb-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث عن مورد"
+              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+            <button
+              className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/reports/suppliers/payables', { method: 'GET' })
+                  if (!res.ok) {
+                    alert('تعذّر إنشاء التقرير')
+                    return
+                  }
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'supplier_payables.pdf'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch (error) {
+                  console.error('Error downloading PDF:', error)
+                  alert('حدث خطأ أثناء تحميل التقرير')
+                }
+              }}
+            >
+              تحميل PDF
+            </button>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg shadow overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr className="text-right">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-700">بيانات المورد</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-700">المبلغ الباقي</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-6 text-center text-gray-500 text-sm">جاري التحميل...</td>
+                  </tr>
+                ) : payables.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-6 text-center text-gray-500 text-sm">لا توجد بيانات</td>
+                  </tr>
+                ) : (
+                  payables.map((s) => (
+                    <tr key={s.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col text-right">
+                          <span className="text-sm font-medium text-gray-900">{s.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {(s.phone ? `هاتف: ${s.phone}` : '')}
+                            {s.phone && s.email ? ' • ' : ''}
+                            {(s.email ? `بريد: ${s.email}` : '')}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-red-700 font-semibold text-sm">{formatAmount(s.balance)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </MainLayout>
   )
 }

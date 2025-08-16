@@ -78,9 +78,27 @@ export default function CustomersListPage() {
             />
             <button
               className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-              onClick={() => alert('تقارير')}
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/reports/customers/list', { method: 'GET' })
+                  if (!res.ok) {
+                    alert('تعذّر إنشاء التقرير')
+                    return
+                  }
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'customer_list.pdf'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch (error) {
+                  console.error('Error downloading PDF:', error)
+                  alert('حدث خطأ أثناء تحميل التقرير')
+                }
+              }}
             >
-              تقرير
+              تحميل PDF
             </button>
           </div>
 
@@ -103,7 +121,11 @@ export default function CustomersListPage() {
                   </tr>
                 ) : (
                   filtered.map((c) => (
-                    <tr key={c.id} className="hover:bg-gray-50">
+                    <tr 
+                      key={c.id} 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => window.location.href = `/customers/${c.id}/edit`}
+                    >
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{formatPhone(c.phone)}</td>
                     </tr>

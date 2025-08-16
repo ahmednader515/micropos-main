@@ -21,9 +21,38 @@ export default function CustomersAuditPage() {
     })()
   }, [])
 
+  const handleDownloadPDF = async () => {
+    try {
+      const res = await fetch('/api/reports/customers/audit', { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'customer_audit.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
   return (
     <MainLayout navbarTitle="فحص أرصدة العملاء" onBack={() => history.back()}>
       <div className="space-y-4" dir="rtl">
+        <div className="flex justify-end">
+          <button
+            onClick={handleDownloadPDF}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            تحميل PDF
+          </button>
+        </div>
+        
         {loading ? (
           <div className="flex justify-center py-6"><div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"/></div>
         ) : (

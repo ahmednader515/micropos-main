@@ -8,17 +8,7 @@ const customersButtons = [
   {
     label: 'ذمم العملاء - المبالغ المتبقية عند العملاء من الفواتير',
     icon: '🧾',
-    onClick: async () => {
-      const res = await fetch('/api/reports/customers/receivables', { method: 'GET' })
-      if (!res.ok) return alert('تعذّر إنشاء التقرير')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'customer_receivables.pdf'
-      a.click()
-      URL.revokeObjectURL(url)
-    }
+    onClick: () => (window.location.href = '/customers/receivables')
   },
   {
     label: 'ذمم العملاء - تقرير',
@@ -39,19 +29,19 @@ const customersButtons = [
     label: 'العملاء المتبقي لهم ارصدة - تقرير',
     icon: '📊',
     onClick: async () => {
-      const res = await fetch('/api/reports/customers/balances', { method: 'GET' })
+      const res = await fetch('/api/reports/customers/remaining-balances', { method: 'GET' })
       if (!res.ok) return alert('تعذّر إنشاء التقرير')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'customer_balances.pdf'
+      a.download = 'customers_remaining_balances.pdf'
       a.click()
       URL.revokeObjectURL(url)
     }
   },
   {
-    label: 'فحص ارصدة العملاء',
+    label: 'فحص ارصدة العملاء - تقرير',
     icon: '🔍',
     onClick: async () => {
       const res = await fetch('/api/reports/customers/audit', { method: 'GET' })

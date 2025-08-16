@@ -44,7 +44,7 @@ export default function CustomerReceivablesPage() {
   const receivables = useMemo(() => {
     const q = search.trim().toLowerCase()
     return customers
-      .filter((c) => c.balance > 0)
+      .filter((c) => c.balance > 0) // Only customers with positive balance (receivables)
       .filter((c) =>
         !q ||
         c.name.toLowerCase().includes(q) ||
@@ -91,11 +91,27 @@ export default function CustomerReceivablesPage() {
             />
             <button
               className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-              onClick={() => {
-                alert('تقرير')
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/reports/customers/receivables', { method: 'GET' })
+                  if (!res.ok) {
+                    alert('تعذّر إنشاء التقرير')
+                    return
+                  }
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'customer_receivables.pdf'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch (error) {
+                  console.error('Error downloading PDF:', error)
+                  alert('حدث خطأ أثناء تحميل التقرير')
+                }
               }}
             >
-              تقرير
+              تحميل PDF
             </button>
           </div>
 
