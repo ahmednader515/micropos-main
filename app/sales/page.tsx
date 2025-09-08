@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
+import BarcodeInput from '@/components/BarcodeInput'
 
 interface Product {
   id: string
@@ -28,44 +29,56 @@ interface SaleItem {
   total: number
 }
 
-interface Sale {
-  id: string
-  invoiceNumber: string
-  customer: Customer | null
-  totalAmount: string
-  paidAmount: string
-  discount: string
-  tax: string
-  status: string
-  paymentMethod: string
-  notes: string
-  createdAt: string
-  items: SaleItem[]
-}
-
 export default function SalesPage() {
-  const [sales, setSales] = useState<Sale[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filters, setFilters] = useState({
-    customerId: '',
-    paymentMethod: 'ALL',
-    status: 'ALL',
-    startDate: '',
-    endDate: ''
+  const [barcodeValue, setBarcodeValue] = useState('')
+  const [customerSearchValue, setCustomerSearchValue] = useState('')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false)
+  const [productSearchValue, setProductSearchValue] = useState('')
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const [modalProductSearch, setModalProductSearch] = useState('')
+  const [screenNumber, setScreenNumber] = useState(1)
+  const [showScreenModal, setShowScreenModal] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [showProductDetails, setShowProductDetails] = useState(false)
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<SaleItem | null>(null)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [invoiceNumber, setInvoiceNumber] = useState<string>('')
+  const [checkoutCustomerSearch, setCheckoutCustomerSearch] = useState('')
+  const [showCheckoutCustomerDropdown, setShowCheckoutCustomerDropdown] = useState(false)
+  const [productDetailsForm, setProductDetailsForm] = useState({
+    sellingPrice: 0,
+    quantity: 1,
+    discountAmount: 0,
+    discountPercentage: 0,
+    invoiceNote: '',
+    removeFromList: false
   })
-  const [formData, setFormData] = useState({
-    customerId: '',
-    items: [] as SaleItem[],
-    totalAmount: 0,
-    paidAmount: 0,
-    discount: 0,
-    tax: 0,
+  const [selectedPriceType, setSelectedPriceType] = useState<'price1' | 'price2' | 'price3'>('price1')
+  const [selectedMenuPrice, setSelectedMenuPrice] = useState<number | null>(null)
+  const [isPriceFixed, setIsPriceFixed] = useState(false)
+  const [checkoutForm, setCheckoutForm] = useState({
     paymentMethod: 'CASH',
-    notes: ''
+    total: 0,
+    paid: 0,
+    discount: 0,
+    remaining: 0,
+    customerAccount: '',
+    previousBalance: 0,
+    note: '',
+    tax: 0
+  })
+  const [saleItems, setSaleItems] = useState<{[screen: number]: SaleItem[]}>({
+    1: [],
+    2: [],
+    3: [],
+    4: []
   })
   const [notification, setNotification] = useState<{
     type: 'success' | 'error'
@@ -74,13 +87,31 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchData()
-  }, [filters])
+  }, [])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.product-search-container') && 
+          !target.closest('.customer-search-container') &&
+          !target.closest('.checkout-customer-search-container')) {
+        setShowProductDropdown(false)
+        setShowCustomerDropdown(false)
+        setShowCheckoutCustomerDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       await Promise.all([
-        fetchSales(),
         fetchProducts(),
         fetchCustomers()
       ])
@@ -88,21 +119,6 @@ export default function SalesPage() {
       showNotification('error', 'فشل في جلب البيانات')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchSales = async () => {
-    const params = new URLSearchParams()
-    if (filters.customerId) params.append('customerId', filters.customerId)
-    if (filters.paymentMethod !== 'ALL') params.append('paymentMethod', filters.paymentMethod)
-    if (filters.status !== 'ALL') params.append('status', filters.status)
-    if (filters.startDate) params.append('startDate', filters.startDate)
-    if (filters.endDate) params.append('endDate', filters.endDate)
-
-    const response = await fetch(`/api/sales?${params}`)
-    if (response.ok) {
-      const data = await response.json()
-      setSales(data)
     }
   }
 
@@ -122,57 +138,26 @@ export default function SalesPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      if (formData.items.length === 0) {
-        showNotification('error', 'يجب إضافة منتجات على الأقل')
-        return
-      }
-
-      if (formData.totalAmount <= 0) {
-        showNotification('error', 'المبلغ الإجمالي يجب أن يكون أكبر من صفر')
-        return
-      }
-
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (response.ok) {
-        showNotification('success', 'تم إنشاء الفاتورة بنجاح')
-        setFormData({
-          customerId: '',
-          items: [],
-          totalAmount: 0,
-          paidAmount: 0,
-          discount: 0,
-          tax: 0,
-          paymentMethod: 'CASH',
-          notes: ''
-        })
-        setShowCreateForm(false)
-        fetchSales()
+  const handleBarcodeDetected = (barcode: string) => {
+    setBarcodeValue(barcode)
+    setProductSearchValue(barcode)
+    // Find product by barcode and add to sale
+    const product = products.find(p => p.barcode === barcode)
+    if (product) {
+      addProductToSale(product)
       } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'فشل في إنشاء الفاتورة')
-      }
-    } catch (error: any) {
-      showNotification('error', error.message || 'فشل في إنشاء الفاتورة')
+      showNotification('error', 'المنتج غير موجود')
     }
   }
 
   const addProductToSale = (product: Product) => {
-    const existingItem = formData.items.find(item => item.productId === product.id)
+    const currentScreenItems = saleItems[screenNumber] || []
+    const existingItem = currentScreenItems.find(item => item.productId === product.id)
     
     if (existingItem) {
-      setFormData(prev => ({
+      setSaleItems(prev => ({
         ...prev,
-        items: prev.items.map(item =>
+        [screenNumber]: prev[screenNumber].map(item =>
           item.productId === product.id
             ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
             : item
@@ -187,55 +172,307 @@ export default function SalesPage() {
         discount: 0,
         total: product.price
       }
-      setFormData(prev => ({
+      setSaleItems(prev => ({
         ...prev,
-        items: [...prev.items, newItem]
+        [screenNumber]: [...(prev[screenNumber] || []), newItem]
       }))
     }
-    updateTotalAmount()
   }
 
   const removeProductFromSale = (productId: string) => {
-    setFormData(prev => ({
+    setSaleItems(prev => ({
       ...prev,
-      items: prev.items.filter(item => item.productId !== productId)
+      [screenNumber]: prev[screenNumber].filter(item => item.productId !== productId)
     }))
-    updateTotalAmount()
   }
 
-  const updateItemQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) return
-    
-    setFormData(prev => ({
+  const calculateTotal = () => {
+    const currentScreenItems = saleItems[screenNumber] || []
+    return currentScreenItems.reduce((sum, item) => sum + item.total, 0)
+  }
+
+  const calculateTotalQuantity = () => {
+    const currentScreenItems = saleItems[screenNumber] || []
+    return currentScreenItems.reduce((sum, item) => sum + item.quantity, 0)
+  }
+
+  const handleProductClick = (item: SaleItem) => {
+    setSelectedProductForDetails(item)
+    setProductDetailsForm({
+      sellingPrice: item.price,
+      quantity: item.quantity,
+      discountAmount: item.discount,
+      discountPercentage: item.price > 0 ? (item.discount / item.price) * 100 : 0,
+      invoiceNote: '',
+      removeFromList: false
+    })
+    // Use fixed price if available, otherwise default to price1
+    const priceType = isPriceFixed && selectedMenuPrice ? `price${selectedMenuPrice}` as 'price1' | 'price2' | 'price3' : 'price1'
+    setSelectedPriceType(priceType)
+    setShowProductDetails(true)
+  }
+
+  const handleProductDetailsSubmit = () => {
+    if (!selectedProductForDetails) return
+
+    if (productDetailsForm.removeFromList) {
+      removeProductFromSale(selectedProductForDetails.productId)
+    } else {
+      const newTotal = (productDetailsForm.sellingPrice * productDetailsForm.quantity) - productDetailsForm.discountAmount
+      setSaleItems(prev => ({
       ...prev,
-      items: prev.items.map(item =>
-        item.productId === productId
-          ? { ...item, quantity, total: quantity * item.price }
+        [screenNumber]: prev[screenNumber].map(item =>
+          item.productId === selectedProductForDetails.productId
+            ? {
+                ...item,
+                price: productDetailsForm.sellingPrice,
+                quantity: productDetailsForm.quantity,
+                discount: productDetailsForm.discountAmount,
+                total: newTotal
+              }
           : item
       )
     }))
-    updateTotalAmount()
   }
 
-  const updateItemPrice = (productId: string, price: number) => {
-    if (price <= 0) return
+    setShowProductDetails(false)
+    setSelectedProductForDetails(null)
+  }
     
-    setFormData(prev => ({
+  const handleDiscountAmountChange = (amount: number) => {
+    setProductDetailsForm(prev => ({
       ...prev,
-      items: prev.items.map(item =>
-        item.productId === productId
-          ? { ...item, price, total: item.quantity * price }
-          : item
-      )
+      discountAmount: amount,
+      discountPercentage: prev.sellingPrice > 0 ? (amount / prev.sellingPrice) * 100 : 0
     }))
-    updateTotalAmount()
   }
 
-  const updateTotalAmount = () => {
-    const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0)
-    const total = subtotal - formData.discount + formData.tax
-    setFormData(prev => ({ ...prev, totalAmount: total }))
+  const handleDiscountPercentageChange = (percentage: number) => {
+    setProductDetailsForm(prev => ({
+      ...prev,
+      discountPercentage: percentage,
+      discountAmount: (prev.sellingPrice * prev.quantity * percentage) / 100
+    }))
   }
+
+  const handlePriceTypeSelect = (priceType: 'price1' | 'price2' | 'price3') => {
+    setSelectedPriceType(priceType)
+    if (selectedProductForDetails) {
+      const product = products.find(p => p.id === selectedProductForDetails.productId)
+      if (product) {
+        // For now, we'll use the same price for all three types
+        // In a real app, you might have different price fields in the product
+        const newPrice = product.price
+        setProductDetailsForm(prev => ({
+          ...prev,
+          sellingPrice: newPrice
+        }))
+      }
+    }
+  }
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setCustomerSearchValue(customer.name)
+    setShowCustomerDropdown(false)
+    setShowCustomerSearch(false)
+  }
+
+  const handleCustomerClear = () => {
+    setSelectedCustomer(null)
+    setCustomerSearchValue('')
+    setShowCustomerSearch(false)
+  }
+
+  const handleCheckoutClick = () => {
+    const currentScreenItems = saleItems[screenNumber] || []
+    if (currentScreenItems.length === 0) {
+      showNotification('error', 'يرجى إضافة منتجات إلى القائمة أولاً')
+      return
+    }
+    
+    const total = calculateTotal()
+    setCheckoutForm(prev => ({
+      ...prev,
+      total: total,
+      remaining: total - prev.paid - prev.discount + prev.tax,
+      customerAccount: selectedCustomer?.name || '',
+      previousBalance: selectedCustomer ? parseFloat(selectedCustomer.balance) : 0
+    }))
+    setCheckoutCustomerSearch('')
+    setShowCheckoutCustomerDropdown(false)
+    setShowCheckoutModal(true)
+  }
+
+  const handleCheckoutSubmit = async () => {
+    try {
+      const currentScreenItems = saleItems[screenNumber] || []
+      
+      // Prepare sale items for database
+      const saleItemsForDB = currentScreenItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        discount: item.discount || 0,
+        total: item.price * item.quantity - (item.discount || 0)
+      }))
+
+      // Find customer ID if customer is selected
+      let customerId = null
+      if (selectedCustomer) {
+        customerId = selectedCustomer.id
+      } else if (checkoutForm.customerAccount.trim() !== '') {
+        // Try to find customer by name
+        const customer = customers.find(c => 
+          c.name.toLowerCase() === checkoutForm.customerAccount.toLowerCase()
+        )
+        if (customer) {
+          customerId = customer.id
+        }
+      }
+
+      // Prepare sale data (invoice number will be generated by API)
+      const saleData = {
+        customerId,
+        totalAmount: checkoutForm.total,
+        paidAmount: checkoutForm.paid,
+        discount: checkoutForm.discount,
+        tax: checkoutForm.tax,
+        paymentMethod: checkoutForm.paymentMethod,
+        notes: checkoutForm.note,
+        items: saleItemsForDB
+      }
+
+      // Save to database
+      const response = await fetch('/api/sales', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(saleData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'فشل في حفظ الفاتورة')
+      }
+
+      const result = await response.json()
+      
+      // Update local state with the generated invoice number
+      setInvoiceNumber(result.sale.invoiceNumber)
+      setShowCheckoutModal(false)
+      setShowSuccessModal(true)
+      setSaleItems(prev => ({ ...prev, [screenNumber]: [] }))
+      
+      // Show success notification
+      showNotification('success', result.message || 'تم حفظ الفاتورة بنجاح')
+
+    } catch (error) {
+      console.error('Error saving invoice:', error)
+      showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء حفظ الفاتورة')
+    }
+  }
+
+  const handlePrintPDF = async () => {
+    try {
+      if (!invoiceNumber) {
+        showNotification('error', 'رقم الفاتورة غير متوفر')
+        return
+      }
+
+      // First, we need to get the sale ID from the invoice number
+      const response = await fetch(`/api/sales?invoiceNumber=${invoiceNumber}`)
+      if (!response.ok) {
+        throw new Error('فشل في العثور على الفاتورة')
+      }
+
+      const data = await response.json()
+      if (!data.sales || data.sales.length === 0) {
+        throw new Error('الفاتورة غير موجودة')
+      }
+
+      const sale = data.sales[0]
+      
+      // Generate and download PDF
+      const pdfResponse = await fetch(`/api/pdf/invoice?id=${sale.id}`)
+      if (!pdfResponse.ok) {
+        throw new Error('فشل في توليد الفاتورة')
+      }
+
+      // Create blob and download
+      const blob = await pdfResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `invoice_${invoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      showNotification('success', 'تم تحميل الفاتورة بنجاح')
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الفاتورة')
+    }
+  }
+
+  const handleFinish = () => {
+    setShowSuccessModal(false)
+    setInvoiceNumber('')
+  }
+
+  const handleCheckoutCustomerSelect = (customer: Customer) => {
+    setCheckoutForm(prev => ({
+      ...prev,
+      customerAccount: customer.name,
+      previousBalance: parseFloat(customer.balance)
+    }))
+    setCheckoutCustomerSearch(customer.name)
+    setShowCheckoutCustomerDropdown(false)
+  }
+
+  const filteredCheckoutCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(checkoutCustomerSearch.toLowerCase())
+  )
+
+  const filteredCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(customerSearchValue.toLowerCase())
+  )
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchValue.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(productSearchValue)) ||
+    (product.sku && product.sku.toLowerCase().includes(productSearchValue.toLowerCase()))
+  )
+
+  const filteredModalProducts = products.filter(product =>
+    product.name.toLowerCase().includes(modalProductSearch.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(modalProductSearch)) ||
+    (product.sku && product.sku.toLowerCase().includes(modalProductSearch.toLowerCase()))
+  )
+
+  const handleProductSelect = (product: Product) => {
+    addProductToSale(product)
+    setProductSearchValue('')
+    setShowProductDropdown(false)
+  }
+
+  const menuOptions = [
+    { label: 'اعادة طباعة الفاتورة', onClick: () => console.log('اعادة طباعة الفاتورة') },
+    { label: 'تعديل فاتورة البيع', onClick: () => console.log('تعديل فاتورة البيع') },
+    { label: 'تثبيت سعر البيع 1', onClick: () => { setSelectedMenuPrice(1); setIsPriceFixed(true) } },
+    { label: 'تثبيت سعر البيع 2', onClick: () => { setSelectedMenuPrice(2); setIsPriceFixed(true) } },
+    { label: 'تثبيت سعر البيع 3', onClick: () => { setSelectedMenuPrice(3); setIsPriceFixed(true) } },
+    { label: 'الحاسبة', onClick: () => console.log('الحاسبة') },
+    { label: 'الاستعلام عن الباقي عند العميل', onClick: () => console.log('الاستعلام عن الباقي عند العميل') },
+    { label: 'استيراد البيانات من عرض سعر', onClick: () => console.log('استيراد البيانات من عرض سعر') },
+    { label: 'قارئ الباركود متضمن / خارج الشاشة', onClick: () => console.log('قارئ الباركود متضمن / خارج الشاشة') },
+    { label: 'اضافة منتج جديد', onClick: () => console.log('اضافة منتج جديد') },
+    { label: 'عرض الفواتير', onClick: () => console.log('عرض الفواتير') },
+    { label: 'مسح المنتجات من القائمة', onClick: () => setSaleItems(prev => ({ ...prev, [screenNumber]: [] })) }
+  ]
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
@@ -243,63 +480,18 @@ export default function SalesPage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('ar-SA', {
+    return amount.toLocaleString('ar-EG', {
       style: 'currency',
-      currency: 'SAR'
+      currency: 'EGP'
     })
   }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const getPaymentMethodLabel = (method: string) => {
-    const labels: { [key: string]: string } = {
-      'CASH': 'نقداً',
-      'CARD': 'بطاقة',
-      'BANK_TRANSFER': 'تحويل بنكي',
-      'CHECK': 'شيك',
-      'MOBILE_PAYMENT': 'دفع إلكتروني'
-    }
-    return labels[method] || method
-  }
-
-  const getStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      'PENDING': 'معلق',
-      'COMPLETED': 'مكتمل',
-      'CANCELLED': 'ملغي',
-      'REFUNDED': 'مسترد'
-    }
-    return labels[status] || status
-  }
-
-  const getStatusColor = (status: string) => {
-    const colors: { [key: string]: string } = {
-      'PENDING': 'text-yellow-600',
-      'COMPLETED': 'text-green-600',
-      'CANCELLED': 'text-red-600',
-      'REFUNDED': 'text-gray-600'
-    }
-    return colors[status] || 'text-gray-600'
-  }
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.barcode && product.barcode.includes(searchTerm)) ||
-    (product.sku && product.sku.includes(searchTerm))
-  )
 
   if (loading) {
     return (
       <MainLayout
         navbarTitle="المبيعات"
         onBack={() => window.history.back()}
-        menuOptions={[]}
+        menuOptions={menuOptions}
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">جاري التحميل...</div>
@@ -310,356 +502,827 @@ export default function SalesPage() {
 
   return (
     <MainLayout
-      navbarTitle="المبيعات"
+      navbarTitle={isPriceFixed ? `المبيعات - سعر البيع ${selectedMenuPrice}` : "المبيعات"}
       onBack={() => window.history.back()}
-      menuOptions={[]}
+      menuOptions={menuOptions}
     >
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">المبيعات</h1>
-          <p className="mt-2 text-gray-600">إدارة فواتير المبيعات</p>
-        </div>
+      <div className="h-[calc(100vh-3rem)] lg:h-screen flex flex-col -m-4 lg:-m-6" dir="rtl">
+        {/* Top Row with Search Bar in Middle and Buttons on Sides */}
+        <div className="flex items-center gap-1 p-2 sm:p-4 bg-white border-b flex-shrink-0" dir="rtl">
+          {/* Left Side - Barcode Button and Customer Search Button */}
+          <div className="flex items-center gap-1">
+            {/* Barcode Button (separate from search) */}
+            <button
+              onClick={() => setShowBarcodeScanner(true)}
+              className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded"
+              title="مسح الباركود"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1zm12 0h2a1 1 0 001-1V6a1 1 0 00-1-1h-2a1 1 0 00-1 1v1a1 1 0 001 1zM5 20h2a1 1 0 001-1v-1a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1z"
+                />
+              </svg>
+            </button>
 
-        {/* Action Button */}
-        <div className="flex justify-end">
+            {/* Customer Search Button */}
+            <div className="relative">
           <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-          >
-            إنشاء فاتورة جديدة
+                onClick={() => setShowCustomerSearch(!showCustomerSearch)}
+                className={`p-1.5 transition-colors rounded ${
+                  selectedCustomer 
+                    ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' 
+                    : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-gray-200'
+                }`}
+                title={selectedCustomer ? `عميل مختار: ${selectedCustomer.name}` : "البحث عن العميل"}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
           </button>
+              {selectedCustomer && (
+                <button
+                  onClick={handleCustomerClear}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                  title="إلغاء اختيار العميل"
+                >
+                  ×
+                </button>
+              )}
+            </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">تصفية النتائج</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">العميل</label>
-              <select
-                value={filters.customerId}
-                onChange={(e) => setFilters({ ...filters, customerId: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">جميع العملاء</option>
-                {customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>{customer.name}</option>
+          {/* Middle - Search Bar */}
+          <div className="flex-1 min-w-0 max-w-lg mx-1 relative product-search-container">
+            <input
+              type="text"
+              value={productSearchValue}
+              onChange={(e) => {
+                setProductSearchValue(e.target.value)
+                setShowProductDropdown(true)
+              }}
+              onFocus={() => setShowProductDropdown(true)}
+              placeholder="ابحث عن منتج او استخدم الكاميرا"
+              className="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
+            />
+            {productSearchValue.trim() !== '' && filteredProducts.length > 0 && showProductDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                {filteredProducts.map(product => (
+                  <button
+                    key={product.id}
+                    onClick={() => handleProductSelect(product)}
+                    className="w-full text-right px-4 py-2 hover:bg-gray-100 border-b last:border-b-0"
+                  >
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-sm text-gray-500">
+                      السعر: {formatCurrency(product.price)} | المخزون: {product.stock}
+                    </div>
+                  </button>
                 ))}
-              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
-              <select
-                value={filters.paymentMethod}
-                onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="ALL">جميع الطرق</option>
-                <option value="CASH">نقداً</option>
-                <option value="CARD">بطاقة</option>
-                <option value="BANK_TRANSFER">تحويل بنكي</option>
-                <option value="CHECK">شيك</option>
-                <option value="MOBILE_PAYMENT">دفع إلكتروني</option>
-              </select>
+            )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="ALL">جميع الحالات</option>
-                <option value="PENDING">معلق</option>
-                <option value="COMPLETED">مكتمل</option>
-                <option value="CANCELLED">ملغي</option>
-                <option value="REFUNDED">مسترد</option>
-              </select>
+
+          {/* Right Side - Screen Switcher and Calculator */}
+          <div className="flex items-center gap-1">
+            {/* Screen Switcher */}
+            <button
+              onClick={() => setShowScreenModal(true)}
+              className="p-1 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded"
+              title={`الشاشة ${screenNumber} - ${(saleItems[screenNumber] || []).length} منتج`}
+            >
+              <div className="grid grid-cols-2 gap-0.5">
+                {[1, 2, 3, 4].map((screen) => (
+                  <div
+                    key={screen}
+                    className={`w-2.5 h-2.5 flex items-center justify-center text-xs font-medium border transition-colors ${
+                      screenNumber === screen
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-gray-700 border-gray-300'
+                    }`}
+                  >
+                    {screen}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
-              <input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+                ))}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
-              <input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            </button>
+
+            {/* Calculator Button */}
+            <button
+              onClick={handleCheckoutClick}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-2 rounded transition-colors text-xs whitespace-nowrap"
+            >
+              حاسب
+            </button>
             </div>
-          </div>
+
         </div>
 
-        {/* Create Sale Form */}
-        {showCreateForm && (
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">إنشاء فاتورة جديدة</h3>
-            
-            {/* Product Search */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">البحث عن المنتجات</label>
+        {/* Customer Search Bar - Full width above table */}
+        {showCustomerSearch && (
+          <div className="w-full bg-white border-b border-gray-200 p-4 customer-search-container" dir="rtl">
+            <div className="relative">
               <input
                 type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="ابحث بالاسم، الباركود، أو SKU"
+                value={customerSearchValue}
+                onChange={(e) => setCustomerSearchValue(e.target.value)}
+                placeholder="ابحث عن عميل..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                autoFocus
               />
-              
-              {/* Product Results */}
-              {searchTerm && (
-                <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.id}
-                      onClick={() => addProductToSale(product)}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+              {customerSearchValue.trim() !== '' && filteredCustomers.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                  {filteredCustomers.map(customer => (
+                    <button
+                      key={customer.id}
+                      onClick={() => handleCustomerSelect(customer)}
+                      className="w-full text-right px-4 py-2 hover:bg-gray-100 border-b last:border-b-0"
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">
-                            الباركود: {product.barcode || 'N/A'} | SKU: {product.sku || 'N/A'}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(product.price)}</div>
-                          <div className="text-sm text-gray-500">المخزون: {product.stock}</div>
-                        </div>
-                      </div>
-                    </div>
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="text-sm text-gray-500">الرصيد: {formatCurrency(parseFloat(customer.balance))}</div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            {/* Sale Items */}
-            {formData.items.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-md font-medium text-gray-900 mb-3">المنتجات المختارة</h4>
-                <div className="space-y-3">
-                  {formData.items.map((item, index) => (
-                    <div key={item.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-sm text-gray-500">
-                          السعر: {formatCurrency(item.price)} | الكمية: {item.quantity}
+        {/* Selected Customer Display */}
+        {selectedCustomer && !showCustomerSearch && (
+          <div className="w-full bg-blue-50 border-b border-blue-200 p-3" dir="rtl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                  {selectedCustomer.name.charAt(0)}
+            </div>
+            <div>
+                  <div className="font-medium text-blue-900">{selectedCustomer.name}</div>
+                  <div className="text-sm text-blue-700">الرصيد: {formatCurrency(parseFloat(selectedCustomer.balance))}</div>
+                </div>
+              </div>
+              <button
+                onClick={handleCustomerClear}
+                className="text-blue-600 hover:text-blue-800 p-1"
+                title="إلغاء اختيار العميل"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Products Table */}
+        <div className="flex-1 overflow-auto min-h-0 bg-gray-50">
+          <div className="h-full">
+            <table className="w-full text-sm" dir="rtl">
+              <thead className="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">المنتج</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">السعر</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الكمية</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الاجمالي</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {(saleItems[screenNumber] || []).map((item) => (
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)}>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="truncate max-w-xs text-xs sm:text-sm">{item.name}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(item.price)}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{item.quantity}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(item.total)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+
+        {/* Add Products Button - Fixed above bottom bar */}
+        <div className="flex-shrink-0 p-2 sm:p-4 bg-gray-50">
+                        <button
+            onClick={() => setShowProductModal(true)}
+            className="p-2 text-white hover:text-white transition-colors bg-blue-600 hover:bg-blue-700 rounded-lg"
+            title="إضافة منتجات"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+                        </button>
+            </div>
+
+        {/* Bottom Section - Fixed at bottom */}
+        <div className="flex-shrink-0">
+          {/* Bottom Bar with Totals */}
+          <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
+            <div className="text-base sm:text-lg font-semibold">
+              الإجمالي: {formatCurrency(calculateTotal())}
+            </div>
+            <div className="text-sm text-gray-600">
+              ع.ق: {calculateTotalQuantity()}
+                      </div>
+          </div>
+        </div>
+
+        {/* Screen Selection Modal */}
+        {showScreenModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-sm mx-4 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">اختيار الشاشة</h3>
+                <button
+                  onClick={() => setShowScreenModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((screen) => (
+                    <button
+                      key={screen}
+                      onClick={() => {
+                        setScreenNumber(screen)
+                        setShowScreenModal(false)
+                      }}
+                      className={`w-20 h-20 flex flex-col items-center justify-center text-lg font-medium border transition-colors ${
+                        screenNumber === screen
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="text-xl font-bold">{screen}</div>
+                      <div className="text-xs mt-1">
+                        {(saleItems[screen] || []).length} منتج
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-4 text-center text-sm text-gray-500">
+                  الشاشة المختارة: {screenNumber} - {(saleItems[screenNumber] || []).length} منتج
+                </div>
+                
+                {/* Clear All Screens Button */}
+                <div className="mt-4 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setSaleItems({
+                        1: [],
+                        2: [],
+                        3: [],
+                        4: []
+                      })
+                      setShowScreenModal(false)
+                    }}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                  >
+                    مسح جميع المنتجات من كل الشاشات
+                  </button>
+                </div>
+              </div>
+            </div>
+                </div>
+        )}
+
+        {/* Product Selection Modal */}
+        {showProductModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50" dir="rtl">
+            <div className="bg-white w-full max-h-[70vh] rounded-t-lg overflow-hidden">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                <h3 className="text-base sm:text-lg font-semibold">اختيار المنتجات</h3>
+                <button
+                  onClick={() => {
+                    setShowProductModal(false)
+                    setModalProductSearch('')
+                  }}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Search Bar in Modal */}
+              <div className="p-3 sm:p-4 border-b">
+              <input
+                type="text"
+                  value={modalProductSearch}
+                  onChange={(e) => setModalProductSearch(e.target.value)}
+                  placeholder="ابحث عن منتج..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+              
+              <div className="p-2 sm:p-4 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+                  {filteredModalProducts.map(product => (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        addProductToSale(product)
+                        setShowProductModal(false)
+                        setModalProductSearch('')
+                      }}
+                      className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                        السعر: {formatCurrency(product.price)}
+                          </div>
+                      <div className="text-xs sm:text-sm text-gray-500">
+                        المخزون: {product.stock}
+                        </div>
+                      {product.barcode && (
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          الباركود: {product.barcode}
+                        </div>
+                      )}
+                      {product.sku && (
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          SKU: {product.sku}
+                      </div>
+                      )}
+                    </div>
+                  ))}
+                  {filteredModalProducts.length === 0 && modalProductSearch.trim() !== '' && (
+                    <div className="col-span-full text-center text-gray-500 py-8">
+                      لا توجد منتجات تطابق البحث
+                </div>
+              )}
+            </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Product Details Modal */}
+        {showProductDetails && selectedProductForDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-0 sm:mx-4 rounded-t-lg sm:rounded-lg overflow-hidden max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold">تفاصيل المنتج</h3>
+                <button
+                  onClick={() => setShowProductDetails(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                        </div>
+              
+              <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
+                {/* Product Name */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">اسم المنتج</label>
+                  <div className="text-sm sm:text-lg font-semibold text-gray-900 truncate">{selectedProductForDetails.name}</div>
+                      </div>
+
+                {/* Selling Price Selection */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">اختيار سعر البيع</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handlePriceTypeSelect('price1')}
+                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
+                        selectedPriceType === 'price1'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      السعر 1
+                    </button>
+                    <button
+                      onClick={() => handlePriceTypeSelect('price2')}
+                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
+                        selectedPriceType === 'price2'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      السعر 2
+                    </button>
+                    <button
+                      onClick={() => handlePriceTypeSelect('price3')}
+                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
+                        selectedPriceType === 'price3'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      السعر 3
+                    </button>
+                  </div>
+                  <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-center">
+                    {formatCurrency(productDetailsForm.sellingPrice)}
+                  </div>
+                </div>
+
+                {/* Quantity and Total */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية</label>
                         <input
                           type="number"
                           min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItemQuantity(item.productId, parseInt(e.target.value) || 1)}
-                          className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
-                        />
+                      value={productDetailsForm.quantity}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                      className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">المجموع</label>
+                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium">
+                      {formatCurrency(productDetailsForm.sellingPrice * productDetailsForm.quantity)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Discount */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">الخصم</label>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">المبلغ</label>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          value={item.price}
-                          onChange={(e) => updateItemPrice(item.productId, parseFloat(e.target.value) || 0)}
-                          className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
-                        />
-                        <span className="font-medium w-20 text-right">
-                          {formatCurrency(item.total)}
+                        value={productDetailsForm.discountAmount}
+                        onChange={(e) => handleDiscountAmountChange(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">النسبة</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={productDetailsForm.discountPercentage}
+                        onChange={(e) => handleDiscountPercentageChange(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invoice Note and Available Stock */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ملاحظة تظهر في الفاتورة</label>
+                    <textarea
+                      value={productDetailsForm.invoiceNote}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, invoiceNote: e.target.value }))}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      rows={2}
+                      placeholder="أدخل ملاحظة..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية المتوفرة</label>
+                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm">
+                      {products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0} قطعة
+                    </div>
+                  </div>
+                </div>
+
+                {/* Remove from List */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="removeFromList"
+                    checked={productDetailsForm.removeFromList}
+                    onChange={(e) => setProductDetailsForm(prev => ({ ...prev, removeFromList: e.target.checked }))}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="removeFromList" className="mr-2 text-xs sm:text-sm text-red-600 font-medium">
+                    إلغاء المنتج من القائمة
+                  </label>
+                </div>
+
+                {/* Final Total */}
+                <div className="border-t pt-3 sm:pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm sm:text-lg font-semibold">الإجمالي النهائي:</span>
+                    <span className="text-sm sm:text-lg font-bold text-blue-600">
+                      {formatCurrency((productDetailsForm.sellingPrice * productDetailsForm.quantity) - productDetailsForm.discountAmount)}
                         </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 border-t bg-gray-50 flex-shrink-0">
                         <button
-                          onClick={() => removeProductFromSale(item.productId)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          حذف
+                  onClick={() => setShowProductDetails(false)}
+                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                >
+                  رجوع
+                </button>
+                <button
+                  onClick={handleProductDetailsSubmit}
+                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                >
+                  حفظ
                         </button>
                       </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
 
-            {/* Sale Details Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">العميل</label>
-                  <select
-                    value={formData.customerId}
-                    onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">اختر العميل (اختياري)</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.id}>{customer.name}</option>
-                    ))}
-                  </select>
+        {/* Checkout Modal */}
+        {showCheckoutModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-lg mx-0 sm:mx-4 rounded-t-lg sm:rounded-lg overflow-hidden max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold">إتمام البيع</h3>
+                <button
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
-                  <select
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="CASH">نقداً</option>
-                    <option value="CARD">بطاقة</option>
-                    <option value="BANK_TRANSFER">تحويل بنكي</option>
-                    <option value="CHECK">شيك</option>
-                    <option value="MOBILE_PAYMENT">دفع إلكتروني</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الخصم</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.discount}
-                    onChange={(e) => {
-                      const discount = parseFloat(e.target.value) || 0
-                      setFormData({ ...formData, discount })
-                      updateTotalAmount()
-                    }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الضريبة</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.tax}
-                    onChange={(e) => {
-                      const tax = parseFloat(e.target.value) || 0
-                      setFormData({ ...formData, tax })
-                      updateTotalAmount()
-                    }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ المدفوع</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.paidAmount}
-                    onChange={(e) => setFormData({ ...formData, paidAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ملاحظات إضافية"
-                  rows={3}
-                />
-              </div>
               
-              {/* Total Summary */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span>الإجمالي:</span>
-                  <span>{formatCurrency(formData.totalAmount)}</span>
+              <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
+                  <select
+                    value={checkoutForm.paymentMethod}
+                    onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="cash">نقدي</option>
+                    <option value="card">بطاقة</option>
+                    <option value="transfer">تحويل</option>
+                  </select>
+                </div>
+
+                {/* Total and Paid */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
+                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                      {formatCurrency(checkoutForm.total)}
+              </div>
+                  </div>
+                <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">المدفوع</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                      value={checkoutForm.paid}
+                    onChange={(e) => {
+                        const paid = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({
+                          ...prev,
+                          paid: paid,
+                          remaining: prev.total - paid - prev.discount + prev.tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                </div>
+
+                {/* Discount and Tax */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الخصم</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                      value={checkoutForm.discount}
+                    onChange={(e) => {
+                        const discount = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({ 
+                          ...prev, 
+                          discount,
+                          remaining: prev.total - prev.paid - discount + prev.tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الضريبة</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                      value={checkoutForm.tax}
+                      onChange={(e) => {
+                        const tax = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({ 
+                          ...prev, 
+                          tax,
+                          remaining: prev.total - prev.paid - prev.discount + tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  إنشاء الفاتورة
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  إلغاء
-                </button>
+                {/* Remaining Amount */}
+              <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
+                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                      {formatCurrency(checkoutForm.remaining)}
+                    </div>
+                </div>
+
+                {/* Customer Account */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">حفظ الفاتورة لحساب عميل</label>
+                  {selectedCustomer ? (
+                    <div className="px-2 sm:px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg text-sm font-medium text-blue-900">
+                      {selectedCustomer.name} - الرصيد: {formatCurrency(parseFloat(selectedCustomer.balance))}
+                    </div>
+                  ) : (
+                    <div className="relative checkout-customer-search-container">
+                  <input
+                        type="text"
+                        value={checkoutCustomerSearch}
+                        onChange={(e) => {
+                          setCheckoutCustomerSearch(e.target.value)
+                          setShowCheckoutCustomerDropdown(true)
+                        }}
+                        onFocus={() => setShowCheckoutCustomerDropdown(true)}
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="ابحث عن عميل..."
+                      />
+                      {checkoutCustomerSearch.trim() !== '' && filteredCheckoutCustomers.length > 0 && showCheckoutCustomerDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                          {filteredCheckoutCustomers.map(customer => (
+                            <button
+                              key={customer.id}
+                              onClick={() => handleCheckoutCustomerSelect(customer)}
+                              className="w-full text-right px-3 py-2 hover:bg-gray-100 border-b last:border-b-0 text-sm"
+                            >
+                              <div className="font-medium">{customer.name}</div>
+                              <div className="text-xs text-gray-500">الرصيد: {formatCurrency(parseFloat(customer.balance))}</div>
+                            </button>
+                          ))}
+                </div>
+                      )}
               </div>
-            </form>
+                  )}
+                </div>
+
+                {/* Previous Balance */}
+              <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الرصيد السابق</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.previousBalance)}
+                  </div>
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ملاحظة</label>
+                <textarea
+                    value={checkoutForm.note}
+                    onChange={(e) => setCheckoutForm(prev => ({ ...prev, note: e.target.value }))}
+                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    rows={2}
+                    placeholder="أدخل ملاحظة..."
+                  />
+                </div>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 border-t bg-gray-50 flex-shrink-0">
+                <button
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                >
+                  رجوع
+                </button>
+                <button
+                  onClick={handleCheckoutSubmit}
+                  className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                >
+                  حفظ الفاتورة
+                </button>
+                </div>
+              </div>
           </div>
         )}
 
-        {/* Sales List */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">فواتير المبيعات</h3>
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">تم حفظ الفاتورة</h3>
+                <p className="text-sm text-gray-600 mb-4">رقم الفاتورة: {invoiceNumber}</p>
+
+              <div className="flex gap-3">
+                <button
+                    onClick={handlePrintPDF}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                    طباعة
+                </button>
+                <button
+                    onClick={handleFinish}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                >
+                    انهاء
+                </button>
+              </div>
+              </div>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm" dir="rtl">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">رقم الفاتورة</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">التاريخ</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">العميل</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">المبلغ الإجمالي</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">المدفوع</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">طريقة الدفع</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">الحالة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {sales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-900 font-medium">
-                      {sale.invoiceNumber}
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">
-                      {formatDate(sale.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">
-                      {sale.customer?.name || 'عميل نقدي'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-900 font-medium">
-                      {formatCurrency(parseFloat(sale.totalAmount))}
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">
-                      {formatCurrency(parseFloat(sale.paidAmount))}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-medium text-blue-600">
-                        {getPaymentMethodLabel(sale.paymentMethod)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`font-medium ${getStatusColor(sale.status)}`}>
-                        {getStatusLabel(sale.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {sales.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                      لا توجد فواتير مبيعات
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        )}
+
+        {/* Barcode Scanner Modal */}
+        {showBarcodeScanner && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-lg mx-4 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">مسح الباركود</h3>
+                <button
+                  onClick={() => setShowBarcodeScanner(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+          </div>
+              <div className="p-6">
+                <BarcodeInput
+                  value={barcodeValue}
+                  onChange={setBarcodeValue}
+                  onBarcodeDetected={(barcode) => {
+                    handleBarcodeDetected(barcode)
+                    setShowBarcodeScanner(false)
+                  }}
+                  placeholder="مسح الباركود..."
+                  className="w-full"
+                />
           </div>
         </div>
+          </div>
+        )}
       </div>
 
       {/* Notification */}

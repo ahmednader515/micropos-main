@@ -1,160 +1,141 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
-
-// GET /api/sales - Get sales with filters
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const customerId = searchParams.get('customerId')
-    const paymentMethod = searchParams.get('paymentMethod')
-    const status = searchParams.get('status')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-
-    // Build where clause
-    const where: any = {}
-    
-    if (customerId) {
-      where.customerId = customerId
-    }
-    
-    if (paymentMethod && paymentMethod !== 'ALL') {
-      where.paymentMethod = paymentMethod
-    }
-    
-    if (status && status !== 'ALL') {
-      where.status = status
-    }
-    
-    if (startDate || endDate) {
-      where.createdAt = {}
-      if (startDate) {
-        where.createdAt.gte = new Date(startDate)
-      }
-      if (endDate) {
-        where.createdAt.lte = new Date(endDate + 'T23:59:59.999Z')
-      }
-    }
-
-    const sales = await prisma.sale.findMany({
-      where,
-      include: {
-        customer: true,
-        items: {
-          include: {
-            product: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-
-    return NextResponse.json(sales.map(sale => ({
-      id: sale.id,
-      invoiceNumber: sale.invoiceNumber,
-      customer: sale.customer ? {
-        id: sale.customer.id,
-        name: sale.customer.name,
-        balance: sale.customer.balance.toString()
-      } : null,
-      totalAmount: sale.totalAmount.toString(),
-      paidAmount: sale.paidAmount.toString(),
-      discount: sale.discount.toString(),
-      tax: sale.tax.toString(),
-      status: sale.status,
-      paymentMethod: sale.paymentMethod,
-      notes: sale.notes,
-      createdAt: sale.createdAt.toISOString(),
-      items: sale.items.map(item => ({
-        productId: item.productId,
-        name: item.product.name,
-        price: item.price,
-        quantity: item.quantity,
-        discount: item.discount,
-        total: item.total
-      }))
-    })))
-  } catch (error) {
-    console.error('Error fetching sales:', error)
-    return NextResponse.json(
-      { error: 'فشل في جلب المبيعات' },
-      { status: 500 }
-    )
-  }
-}
-
-// POST /api/sales - Create new sale
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes } = body
+    const {
+      invoiceNumber,
+      customerId,
+      totalAmount,
+      paidAmount,
+      discount,
+      tax = 0,
+      paymentMethod,
+      notes,
+      items
+    } = body
 
     // Validate required fields
     if (!items || items.length === 0) {
       return NextResponse.json(
-        { error: 'يجب إضافة منتجات على الأقل' },
+        { error: 'المنتجات مطلوبة' },
         { status: 400 }
       )
     }
 
-    if (!totalAmount || totalAmount <= 0) {
-      return NextResponse.json(
-        { error: 'المبلغ الإجمالي يجب أن يكون أكبر من صفر' },
-        { status: 400 }
-      )
-    }
+    // Generate invoice number based on database count
+    const invoiceCount = await prisma.sale.count()
+    const generatedInvoiceNumber = invoiceNumber || `INV-${String(invoiceCount + 1).padStart(6, '0')}`
 
-    // Generate invoice number
-    const lastSale = await prisma.sale.findFirst({
-      orderBy: { createdAt: 'desc' }
+    // Check if generated invoice number already exists (safety check)
+    const existingSale = await prisma.sale.findUnique({
+      where: { invoiceNumber: generatedInvoiceNumber }
     })
 
-    let invoiceNumber = 'INV-001'
-    if (lastSale) {
-      const lastNumber = parseInt(lastSale.invoiceNumber.split('-')[1])
-      invoiceNumber = `INV-${String(lastNumber + 1).padStart(3, '0')}`
-    }
-
-    // Check stock availability and update stock
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
+    if (existingSale) {
+      // If exists, generate a new one with timestamp
+      const timestamp = Date.now()
+      const finalInvoiceNumber = `INV-${timestamp}`
+      
+      // Double check this one doesn't exist
+      const existingSale2 = await prisma.sale.findUnique({
+        where: { invoiceNumber: finalInvoiceNumber }
       })
-
-      if (!product) {
+      
+      if (existingSale2) {
         return NextResponse.json(
-          { error: `المنتج ${item.name} غير موجود` },
-          { status: 400 }
+          { error: 'خطأ في توليد رقم الفاتورة' },
+          { status: 500 }
         )
       }
-
-      if (product.stock < item.quantity) {
-        return NextResponse.json(
-          { error: `المخزون غير كافي للمنتج ${item.name}. المتوفر: ${product.stock}` },
-          { status: 400 }
-        )
-      }
+      
+      // Use the timestamp-based number
+      const sale = await prisma.sale.create({
+        data: {
+          invoiceNumber: finalInvoiceNumber,
+          customerId: customerId || null,
+          totalAmount,
+          paidAmount: paidAmount || 0,
+          discount: discount || 0,
+          tax,
+          paymentMethod: paymentMethod || 'CASH',
+          notes,
+          items: {
+            create: items.map((item: any) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+              discount: item.discount || 0,
+              total: item.total
+            }))
+          }
+        },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          },
+          customer: true
+        }
+      })
 
       // Update product stock
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { stock: product.stock - item.quantity }
+      for (const item of items) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity
+            }
+          }
+        })
+      }
+
+      // Update customer balance if customer exists
+      if (customerId) {
+        const remainingAmount = totalAmount - (paidAmount || 0)
+        if (remainingAmount > 0) {
+          await prisma.customer.update({
+            where: { id: customerId },
+            data: {
+              balance: {
+                increment: remainingAmount
+              }
+            }
+          })
+        }
+      }
+
+      // Create cashbox transaction for income
+      await prisma.cashboxTransaction.create({
+        data: {
+          type: 'INCOME',
+          amount: paidAmount || 0,
+          description: `فاتورة مبيعات ${finalInvoiceNumber}`,
+          reference: sale.id,
+          paymentMethod: paymentMethod || 'CASH'
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        sale,
+        message: 'تم حفظ الفاتورة بنجاح'
       })
     }
 
-    // Create sale with items
+    // Create the sale with items (normal case)
     const sale = await prisma.sale.create({
       data: {
-        invoiceNumber,
+        invoiceNumber: generatedInvoiceNumber,
         customerId: customerId || null,
-        totalAmount: parseFloat(totalAmount),
-        paidAmount: parseFloat(paidAmount) || 0,
-        discount: parseFloat(discount) || 0,
-        tax: parseFloat(tax) || 0,
-        status: 'COMPLETED',
-        paymentMethod,
+        totalAmount,
+        paidAmount: paidAmount || 0,
+        discount: discount || 0,
+        tax,
+        paymentMethod: paymentMethod || 'CASH',
         notes,
         items: {
           create: items.map((item: any) => ({
@@ -167,203 +148,129 @@ export async function POST(request: NextRequest) {
         }
       },
       include: {
-        customer: true,
-        items: true
+        items: {
+          include: {
+            product: true
+          }
+        },
+        customer: true
       }
     })
 
-    // If customer exists and this is a credit sale, update customer balance
-    if (customerId && parseFloat(paidAmount) < parseFloat(totalAmount)) {
-      const remainingAmount = parseFloat(totalAmount) - parseFloat(paidAmount)
-      await prisma.customer.update({
-        where: { id: customerId },
+    // Update product stock
+    for (const item of items) {
+      await prisma.product.update({
+        where: { id: item.productId },
         data: {
-          balance: {
-            increment: remainingAmount
+          stock: {
+            decrement: item.quantity
           }
         }
       })
     }
 
-    // If payment method is CASHBOX, add to cashbox
-    if (paymentMethod === 'CASHBOX') {
-      await prisma.cashboxTransaction.create({
-        data: {
-          type: 'INCOME',
-          amount: parseFloat(paidAmount),
-          description: `مبيعات: ${invoiceNumber}`,
-          reference: sale.id,
-          paymentMethod: 'CASHBOX'
-        }
-      })
-    }
-
-    return NextResponse.json({
-      message: 'تم إنشاء الفاتورة بنجاح',
-      sale: {
-        id: sale.id,
-        invoiceNumber: sale.invoiceNumber,
-        customer: sale.customer ? {
-          id: sale.customer.id,
-          name: sale.customer.name,
-          balance: sale.customer.balance.toString()
-        } : null,
-        totalAmount: sale.totalAmount.toString(),
-        paidAmount: sale.paidAmount.toString(),
-        discount: sale.discount.toString(),
-        tax: sale.tax.toString(),
-        status: sale.status,
-        paymentMethod: sale.paymentMethod,
-        notes: sale.notes,
-        createdAt: sale.createdAt.toISOString(),
-        items: sale.items.map(item => ({
-          productId: item.productId,
-          price: parseFloat(item.price.toString()),
-          quantity: item.quantity,
-          discount: parseFloat(item.discount.toString()),
-          total: parseFloat(item.total.toString())
-        }))
-      }
-    })
-  } catch (error) {
-    console.error('Error creating sale:', error)
-    return NextResponse.json(
-      { error: 'فشل في إنشاء الفاتورة' },
-      { status: 500 }
-    )
-  }
-}
-
-// PUT /api/sales/[id] - Update sale
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { id, customerId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes, status } = body
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'معرف الفاتورة مطلوب' },
-        { status: 400 }
-      )
-    }
-
-    // Get existing sale
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
-      include: { items: true, customer: true }
-    })
-
-    if (!existingSale) {
-      return NextResponse.json(
-        { error: 'الفاتورة غير موجودة' },
-        { status: 404 }
-      )
-    }
-
-    // If status is being changed to CANCELLED, restore stock
-    if (status === 'CANCELLED' && existingSale.status !== 'CANCELLED') {
-      for (const item of existingSale.items) {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } }
+    // Update customer balance if customer exists
+    if (customerId) {
+      const remainingAmount = totalAmount - (paidAmount || 0)
+      if (remainingAmount > 0) {
+        await prisma.customer.update({
+          where: { id: customerId },
+          data: {
+            balance: {
+              increment: remainingAmount
+            }
+          }
         })
       }
     }
 
-    // Update sale
-    const updatedSale = await prisma.sale.update({
-      where: { id },
+    // Create cashbox transaction for income
+    await prisma.cashboxTransaction.create({
       data: {
-        customerId: customerId || null,
-        totalAmount: parseFloat(totalAmount),
-        paidAmount: parseFloat(paidAmount) || 0,
-        discount: parseFloat(discount) || 0,
-        tax: parseFloat(tax) || 0,
-        status,
-        paymentMethod,
-        notes
-      },
-      include: {
-        customer: true,
-        items: true
+        type: 'INCOME',
+        amount: paidAmount || 0,
+        description: `فاتورة مبيعات ${invoiceNumber}`,
+        reference: sale.id,
+        paymentMethod: paymentMethod || 'CASH'
       }
     })
 
     return NextResponse.json({
-      message: 'تم تحديث الفاتورة بنجاح',
-      sale: {
-        id: updatedSale.id,
-        invoiceNumber: updatedSale.invoiceNumber,
-        customer: updatedSale.customer ? {
-          id: updatedSale.customer.id,
-          name: updatedSale.customer.name,
-          balance: updatedSale.customer.balance.toString()
-        } : null,
-        totalAmount: updatedSale.totalAmount.toString(),
-        paidAmount: updatedSale.paidAmount.toString(),
-        discount: updatedSale.discount.toString(),
-        tax: updatedSale.tax.toString(),
-        status: updatedSale.status,
-        paymentMethod: updatedSale.paymentMethod,
-        notes: updatedSale.notes,
-        createdAt: updatedSale.createdAt.toISOString()
-      }
+      success: true,
+      sale,
+      message: 'تم حفظ الفاتورة بنجاح'
     })
+
   } catch (error) {
-    console.error('Error updating sale:', error)
+    console.error('Error creating sale:', error)
     return NextResponse.json(
-      { error: 'فشل في تحديث الفاتورة' },
+      { error: 'حدث خطأ أثناء حفظ الفاتورة' },
       { status: 500 }
     )
   }
 }
 
-// DELETE /api/sales/[id] - Delete sale
-export async function DELETE(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const customerId = searchParams.get('customerId')
+    const invoiceNumber = searchParams.get('invoiceNumber')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'معرف الفاتورة مطلوب' },
-        { status: 400 }
-      )
+    const skip = (page - 1) * limit
+
+    const where: any = {}
+    
+    if (customerId) {
+      where.customerId = customerId
     }
 
-    // Get existing sale to restore stock
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
-      include: { items: true }
-    })
-
-    if (!existingSale) {
-      return NextResponse.json(
-        { error: 'الفاتورة غير موجودة' },
-        { status: 404 }
-      )
+    if (invoiceNumber) {
+      where.invoiceNumber = invoiceNumber
     }
 
-    // Restore product stock
-    for (const item of existingSale.items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: item.quantity } }
-      })
+    if (startDate && endDate) {
+      where.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
     }
 
-    // Delete sale (items will be deleted automatically due to cascade)
-    await prisma.sale.delete({
-      where: { id }
-    })
+    const [sales, total] = await Promise.all([
+      prisma.sale.findMany({
+        where,
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          },
+          customer: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.sale.count({ where })
+    ])
 
     return NextResponse.json({
-      message: 'تم حذف الفاتورة بنجاح'
+      sales,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     })
+
   } catch (error) {
-    console.error('Error deleting sale:', error)
+    console.error('Error fetching sales:', error)
     return NextResponse.json(
-      { error: 'فشل في حذف الفاتورة' },
+      { error: 'حدث خطأ أثناء جلب المبيعات' },
       { status: 500 }
     )
   }
