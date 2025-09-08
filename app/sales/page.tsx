@@ -206,7 +206,7 @@ export default function SalesPage() {
             showNotification('error', 'لا توجد منتجات في هذه الفاتورة')
           }
         } else {
-          console.log('No invoices found for invoice number:', invoiceId)
+          console.log('No invoices found for invoice number:', invoiceNumber)
           showNotification('error', 'لم يتم العثور على الفاتورة')
         }
       } else {
