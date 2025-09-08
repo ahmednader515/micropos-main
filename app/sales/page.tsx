@@ -52,6 +52,11 @@ export default function SalesPage() {
   const [invoiceNumber, setInvoiceNumber] = useState<string>('')
   const [checkoutCustomerSearch, setCheckoutCustomerSearch] = useState('')
   const [showCheckoutCustomerDropdown, setShowCheckoutCustomerDropdown] = useState(false)
+  const [showReprintModal, setShowReprintModal] = useState(false)
+  const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false)
+  const [invoiceSearchNumber, setInvoiceSearchNumber] = useState('')
+  const [searchedInvoice, setSearchedInvoice] = useState<any>(null)
+  const [loadingInvoice, setLoadingInvoice] = useState(false)
   const [productDetailsForm, setProductDetailsForm] = useState({
     sellingPrice: 0,
     quantity: 1,
@@ -64,7 +69,7 @@ export default function SalesPage() {
   const [selectedMenuPrice, setSelectedMenuPrice] = useState<number | null>(null)
   const [isPriceFixed, setIsPriceFixed] = useState(false)
   const [checkoutForm, setCheckoutForm] = useState({
-    paymentMethod: 'CASH',
+    paymentMethod: 'نقدا',
     total: 0,
     paid: 0,
     discount: 0,
@@ -81,9 +86,22 @@ export default function SalesPage() {
     4: []
   })
   const [notification, setNotification] = useState<{
-    type: 'success' | 'error'
+    type: 'success' | 'error' | 'info'
     message: string
   } | null>(null)
+
+  // Function to play sound when product is added
+  const playAddProductSound = () => {
+    try {
+      const audio = new Audio('/sounds/peep.mp3')
+      audio.volume = 0.5 // Set volume to 50%
+      audio.play().catch(error => {
+        console.log('Could not play sound:', error)
+      })
+    } catch (error) {
+      console.log('Error playing sound:', error)
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -107,6 +125,100 @@ export default function SalesPage() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Handle edit parameter from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const editInvoiceId = urlParams.get('edit')
+    
+    if (editInvoiceId) {
+      loadInvoiceForEdit(editInvoiceId)
+    }
+  }, [])
+
+  const loadInvoiceForEdit = async (invoiceNumber: string) => {
+    try {
+      console.log('Loading invoice for edit:', invoiceNumber)
+      const response = await fetch(`/api/sales?invoiceNumber=${invoiceNumber}`)
+      console.log('API response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('API response data:', data)
+        const invoices = Array.isArray(data) ? data : (data.sales || [])
+        console.log('Invoices found:', invoices.length)
+        
+        if (invoices.length > 0) {
+          const invoice = invoices[0]
+          console.log('Selected invoice:', invoice)
+          
+          // Set the selected customer
+          if (invoice.customer) {
+            try {
+              const customerResponse = await fetch(`/api/customers/${invoice.customer.id}`)
+              if (customerResponse.ok) {
+                const customerData = await customerResponse.json()
+                setSelectedCustomer({
+                  id: invoice.customer.id,
+                  name: invoice.customer.name,
+                  balance: customerData.balance || '0'
+                })
+              } else {
+                setSelectedCustomer({
+                  id: invoice.customer.id,
+                  name: invoice.customer.name,
+                  balance: '0'
+                })
+              }
+            } catch (error) {
+              console.error('Error fetching customer balance:', error)
+              setSelectedCustomer({
+                id: invoice.customer.id,
+                name: invoice.customer.name,
+                balance: '0'
+              })
+            }
+            setCustomerSearchValue(invoice.customer.name)
+          } else {
+            setSelectedCustomer(null)
+            setCustomerSearchValue('')
+          }
+
+          // Convert sale items to the format expected by the sales screen
+          if (invoice.items && Array.isArray(invoice.items)) {
+            const convertedItems: SaleItem[] = invoice.items.map((item: any) => ({
+              productId: item.productId,
+              name: item.product.name,
+              price: Number(item.price),
+              quantity: item.quantity,
+              discount: item.discount || 0,
+              total: Number(item.total)
+            }))
+
+            // Load the products into the current screen
+            setSaleItems(prev => ({
+              ...prev,
+              [screenNumber]: convertedItems
+            }))
+
+            showNotification('success', 'تم تحميل الفاتورة للتعديل')
+          } else {
+            showNotification('error', 'لا توجد منتجات في هذه الفاتورة')
+          }
+        } else {
+          console.log('No invoices found for invoice number:', invoiceId)
+          showNotification('error', 'لم يتم العثور على الفاتورة')
+        }
+      } else {
+        const errorText = await response.text()
+        console.error('API error response:', response.status, errorText)
+        showNotification('error', `خطأ في تحميل الفاتورة: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error loading invoice for edit:', error)
+      showNotification('error', 'خطأ في تحميل الفاتورة')
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -177,6 +289,9 @@ export default function SalesPage() {
         [screenNumber]: [...(prev[screenNumber] || []), newItem]
       }))
     }
+    
+    // Play sound when product is added
+    playAddProductSound()
   }
 
   const removeProductFromSale = (productId: string) => {
@@ -459,22 +574,272 @@ export default function SalesPage() {
     setShowProductDropdown(false)
   }
 
+  // Menu option handlers
+  const handleReprintInvoice = () => {
+    setShowReprintModal(true)
+    setInvoiceSearchNumber('')
+    setSearchedInvoice(null)
+  }
+
+  const handleEditInvoice = () => {
+    setShowEditInvoiceModal(true)
+    setInvoiceSearchNumber('')
+    setSearchedInvoice(null)
+  }
+
+  const handleCalculator = () => {
+    // Create a simple calculator modal
+    const calculatorWindow = window.open('', 'calculator', 'width=400,height=600,scrollbars=no,resizable=yes')
+    if (calculatorWindow) {
+      calculatorWindow.document.write(`
+        <!DOCTYPE html>
+        <html dir="rtl">
+        <head>
+          <title>الحاسبة</title>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+            .calculator { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .display { width: 100%; height: 60px; font-size: 24px; text-align: right; border: 2px solid #ddd; border-radius: 5px; padding: 10px; margin-bottom: 20px; }
+            .buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+            button { height: 60px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; background: #f0f0f0; }
+            button:hover { background: #e0e0e0; }
+            .operator { background: #007bff; color: white; }
+            .operator:hover { background: #0056b3; }
+            .equals { background: #28a745; color: white; }
+            .equals:hover { background: #1e7e34; }
+            .clear { background: #dc3545; color: white; }
+            .clear:hover { background: #c82333; }
+          </style>
+        </head>
+        <body>
+          <div class="calculator">
+            <input type="text" class="display" id="display" readonly>
+            <div class="buttons">
+              <button class="clear" onclick="clearDisplay()">مسح</button>
+              <button onclick="deleteLast()">⌫</button>
+              <button class="operator" onclick="appendToDisplay('/')">÷</button>
+              <button class="operator" onclick="appendToDisplay('*')">×</button>
+              <button onclick="appendToDisplay('7')">7</button>
+              <button onclick="appendToDisplay('8')">8</button>
+              <button onclick="appendToDisplay('9')">9</button>
+              <button class="operator" onclick="appendToDisplay('-')">-</button>
+              <button onclick="appendToDisplay('4')">4</button>
+              <button onclick="appendToDisplay('5')">5</button>
+              <button onclick="appendToDisplay('6')">6</button>
+              <button class="operator" onclick="appendToDisplay('+')">+</button>
+              <button onclick="appendToDisplay('1')">1</button>
+              <button onclick="appendToDisplay('2')">2</button>
+              <button onclick="appendToDisplay('3')">3</button>
+              <button class="equals" onclick="calculate()" rowspan="2">=</button>
+              <button onclick="appendToDisplay('0')" style="grid-column: span 2;">0</button>
+              <button onclick="appendToDisplay('.')">.</button>
+            </div>
+          </div>
+          <script>
+            let display = document.getElementById('display');
+            function appendToDisplay(value) {
+              display.value += value;
+            }
+            function clearDisplay() {
+              display.value = '';
+            }
+            function deleteLast() {
+              display.value = display.value.slice(0, -1);
+            }
+            function calculate() {
+              try {
+                display.value = eval(display.value);
+              } catch (error) {
+                display.value = 'خطأ';
+              }
+            }
+          </script>
+        </body>
+        </html>
+      `)
+    }
+  }
+
+  const handleCustomerBalanceInquiry = () => {
+    if (selectedCustomer) {
+      showNotification('info', `رصيد العميل ${selectedCustomer.name}: ${formatCurrency(parseFloat(selectedCustomer.balance))}`)
+    } else {
+      showNotification('error', 'يرجى اختيار عميل أولاً')
+    }
+  }
+
+  const handleToggleBarcodeReader = () => {
+    setShowBarcodeScanner(true)
+  }
+
+  const handleAddNewProduct = () => {
+    window.open('/inventory/new-product', '_blank')
+  }
+
+  const handleViewInvoices = () => {
+    window.location.href = '/reports'
+  }
+
+  const handleClearProducts = () => {
+    setSaleItems(prev => ({ ...prev, [screenNumber]: [] }))
+    showNotification('success', 'تم مسح المنتجات من القائمة')
+  }
+
+  // Invoice search and handling functions
+  const searchInvoice = async () => {
+    if (!invoiceSearchNumber.trim()) {
+      showNotification('error', 'يرجى إدخال رقم الفاتورة')
+      return
+    }
+
+    setLoadingInvoice(true)
+    try {
+      // Remove # prefix if present, since database stores numbers without prefix
+      const cleanInvoiceNumber = invoiceSearchNumber.replace(/^#/, '')
+      const response = await fetch(`/api/sales?invoiceNumber=${cleanInvoiceNumber}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Handle both array format and object with sales property
+        const invoices = Array.isArray(data) ? data : (data.sales || [])
+        if (invoices.length > 0) {
+          setSearchedInvoice(invoices[0])
+          showNotification('success', 'تم العثور على الفاتورة')
+        } else {
+          showNotification('error', 'لم يتم العثور على الفاتورة')
+          setSearchedInvoice(null)
+        }
+      } else {
+        showNotification('error', 'خطأ في البحث عن الفاتورة')
+        setSearchedInvoice(null)
+      }
+    } catch (error) {
+      showNotification('error', 'خطأ في البحث عن الفاتورة')
+      setSearchedInvoice(null)
+    } finally {
+      setLoadingInvoice(false)
+    }
+  }
+
+  const handleReprintSearchedInvoice = async () => {
+    if (!searchedInvoice) {
+      showNotification('error', 'يرجى البحث عن الفاتورة أولاً')
+      return
+    }
+
+    try {
+      const pdfResponse = await fetch(`/api/pdf/invoice?id=${searchedInvoice.id}`)
+      if (!pdfResponse.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+      
+      const blob = await pdfResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${searchedInvoice.invoiceNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      showNotification('success', 'تم طباعة الفاتورة')
+      setShowReprintModal(false)
+    } catch (error) {
+      showNotification('error', 'خطأ في طباعة الفاتورة')
+    }
+  }
+
+  const handleEditSearchedInvoice = async () => {
+    if (!searchedInvoice) {
+      showNotification('error', 'يرجى البحث عن الفاتورة أولاً')
+      return
+    }
+
+    try {
+      // Set the selected customer
+      if (searchedInvoice.customer) {
+        // Fetch the customer's current balance
+        try {
+          const customerResponse = await fetch(`/api/customers/${searchedInvoice.customer.id}`)
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json()
+            setSelectedCustomer({
+              id: searchedInvoice.customer.id,
+              name: searchedInvoice.customer.name,
+              balance: customerData.balance || '0'
+            })
+          } else {
+            setSelectedCustomer({
+              id: searchedInvoice.customer.id,
+              name: searchedInvoice.customer.name,
+              balance: '0'
+            })
+          }
+        } catch (error) {
+          console.error('Error fetching customer balance:', error)
+          setSelectedCustomer({
+            id: searchedInvoice.customer.id,
+            name: searchedInvoice.customer.name,
+            balance: '0'
+          })
+        }
+        setCustomerSearchValue(searchedInvoice.customer.name)
+      } else {
+        setSelectedCustomer(null)
+        setCustomerSearchValue('')
+      }
+
+      // Convert sale items to the format expected by the sales screen
+      console.log('Searched invoice:', searchedInvoice)
+      console.log('Sale items:', searchedInvoice.items)
+      
+      if (!searchedInvoice.items || !Array.isArray(searchedInvoice.items)) {
+        showNotification('error', 'لا توجد منتجات في هذه الفاتورة')
+        return
+      }
+
+      const convertedItems: SaleItem[] = searchedInvoice.items.map((item: any) => ({
+        productId: item.productId,
+        name: item.product.name,
+        price: Number(item.price),
+        quantity: item.quantity,
+        discount: item.discount || 0,
+        total: Number(item.total)
+      }))
+
+      // Load the products into the current screen
+      setSaleItems(prev => ({
+        ...prev,
+        [screenNumber]: convertedItems
+      }))
+
+      // Close the modal and show success message
+      setShowEditInvoiceModal(false)
+      setSearchedInvoice(null)
+      setInvoiceSearchNumber('')
+      showNotification('success', 'تم تحميل الفاتورة للتعديل')
+    } catch (error) {
+      console.error('Error loading invoice for editing:', error)
+      showNotification('error', 'خطأ في تحميل الفاتورة للتعديل')
+    }
+  }
+
   const menuOptions = [
-    { label: 'اعادة طباعة الفاتورة', onClick: () => console.log('اعادة طباعة الفاتورة') },
-    { label: 'تعديل فاتورة البيع', onClick: () => console.log('تعديل فاتورة البيع') },
+    { label: 'اعادة طباعة الفاتورة', onClick: handleReprintInvoice },
+    { label: 'تعديل فاتورة البيع', onClick: handleEditInvoice },
     { label: 'تثبيت سعر البيع 1', onClick: () => { setSelectedMenuPrice(1); setIsPriceFixed(true) } },
     { label: 'تثبيت سعر البيع 2', onClick: () => { setSelectedMenuPrice(2); setIsPriceFixed(true) } },
     { label: 'تثبيت سعر البيع 3', onClick: () => { setSelectedMenuPrice(3); setIsPriceFixed(true) } },
-    { label: 'الحاسبة', onClick: () => console.log('الحاسبة') },
-    { label: 'الاستعلام عن الباقي عند العميل', onClick: () => console.log('الاستعلام عن الباقي عند العميل') },
-    { label: 'استيراد البيانات من عرض سعر', onClick: () => console.log('استيراد البيانات من عرض سعر') },
-    { label: 'قارئ الباركود متضمن / خارج الشاشة', onClick: () => console.log('قارئ الباركود متضمن / خارج الشاشة') },
-    { label: 'اضافة منتج جديد', onClick: () => console.log('اضافة منتج جديد') },
-    { label: 'عرض الفواتير', onClick: () => console.log('عرض الفواتير') },
-    { label: 'مسح المنتجات من القائمة', onClick: () => setSaleItems(prev => ({ ...prev, [screenNumber]: [] })) }
+    { label: 'الحاسبة', onClick: handleCalculator },
+    { label: 'الاستعلام عن الباقي عند العميل', onClick: handleCustomerBalanceInquiry },
+    { label: 'قارئ الباركود متضمن / خارج الشاشة', onClick: handleToggleBarcodeReader },
+    { label: 'اضافة منتج جديد', onClick: handleAddNewProduct },
+    { label: 'عرض الفواتير', onClick: handleViewInvoices },
+    { label: 'مسح المنتجات من القائمة', onClick: handleClearProducts }
   ]
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3000)
   }
@@ -728,7 +1093,7 @@ export default function SalesPage() {
                       </div>
 
         {/* Add Products Button - Fixed above bottom bar */}
-        <div className="flex-shrink-0 p-2 sm:p-4 bg-gray-50">
+        <div className="flex-shrink-0 sticky bottom-16 bg-gray-50 p-2 sm:p-4">
                         <button
             onClick={() => setShowProductModal(true)}
             className="p-2 text-white hover:text-white transition-colors bg-blue-600 hover:bg-blue-700 rounded-lg"
@@ -752,7 +1117,7 @@ export default function SalesPage() {
             </div>
 
         {/* Bottom Section - Fixed at bottom */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 sticky bottom-0 bg-white">
           {/* Bottom Bar with Totals */}
           <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
             <div className="text-base sm:text-lg font-semibold">
@@ -1101,9 +1466,10 @@ export default function SalesPage() {
                     onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
                     className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   >
-                    <option value="cash">نقدي</option>
-                    <option value="card">بطاقة</option>
-                    <option value="transfer">تحويل</option>
+                    <option value="نقدا">نقدا</option>
+                    <option value="اجل">اجل</option>
+                    <option value="بطاقة">بطاقة</option>
+                    <option value="شيك">شيك</option>
                   </select>
                 </div>
 
@@ -1288,6 +1654,151 @@ export default function SalesPage() {
                     انهاء
                 </button>
               </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* Reprint Invoice Modal */}
+        {showReprintModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">إعادة طباعة الفاتورة</h3>
+                <button
+                  onClick={() => setShowReprintModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">رقم الفاتورة</label>
+                  <input
+                    type="text"
+                    value={invoiceSearchNumber}
+                    onChange={(e) => setInvoiceSearchNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="أدخل رقم الفاتورة..."
+                    onKeyPress={(e) => e.key === 'Enter' && searchInvoice()}
+                  />
+                </div>
+
+                {searchedInvoice && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="font-medium text-gray-900">#{searchedInvoice.invoiceNumber}</div>
+                    <div className="text-sm text-gray-500">
+                      {searchedInvoice.customer ? searchedInvoice.customer.name : 'عميل نقدي'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      المبلغ: {formatCurrency(Number(searchedInvoice.totalAmount))}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(searchedInvoice.createdAt).toLocaleDateString('ar-EG')}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowReprintModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={searchInvoice}
+                    disabled={loadingInvoice || !invoiceSearchNumber.trim()}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingInvoice ? 'جاري البحث...' : 'بحث'}
+                  </button>
+                  {searchedInvoice && (
+                    <button
+                      onClick={handleReprintSearchedInvoice}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      طباعة
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Invoice Modal */}
+        {showEditInvoiceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">تعديل فاتورة البيع</h3>
+                <button
+                  onClick={() => setShowEditInvoiceModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">رقم الفاتورة</label>
+                  <input
+                    type="text"
+                    value={invoiceSearchNumber}
+                    onChange={(e) => setInvoiceSearchNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="أدخل رقم الفاتورة..."
+                    onKeyPress={(e) => e.key === 'Enter' && searchInvoice()}
+                  />
+                </div>
+
+                {searchedInvoice && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="font-medium text-gray-900">#{searchedInvoice.invoiceNumber}</div>
+                    <div className="text-sm text-gray-500">
+                      {searchedInvoice.customer ? searchedInvoice.customer.name : 'عميل نقدي'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      المبلغ: {formatCurrency(Number(searchedInvoice.totalAmount))}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(searchedInvoice.createdAt).toLocaleDateString('ar-EG')}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowEditInvoiceModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={searchInvoice}
+                    disabled={loadingInvoice || !invoiceSearchNumber.trim()}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingInvoice ? 'جاري البحث...' : 'بحث'}
+                  </button>
+                  {searchedInvoice && (
+                    <button
+                      onClick={handleEditSearchedInvoice}
+                      className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                    >
+                      تعديل
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

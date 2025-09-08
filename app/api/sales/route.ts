@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Generate invoice number based on database count
     const invoiceCount = await prisma.sale.count()
-    const generatedInvoiceNumber = invoiceNumber || `INV-${String(invoiceCount + 1).padStart(6, '0')}`
+    const generatedInvoiceNumber = invoiceNumber || String(invoiceCount + 1)
 
     // Check if generated invoice number already exists (safety check)
     const existingSale = await prisma.sale.findUnique({
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (existingSale) {
       // If exists, generate a new one with timestamp
       const timestamp = Date.now()
-      const finalInvoiceNumber = `INV-${timestamp}`
+      const finalInvoiceNumber = String(timestamp)
       
       // Double check this one doesn't exist
       const existingSale2 = await prisma.sale.findUnique({
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
           paidAmount: paidAmount || 0,
           discount: discount || 0,
           tax,
-          paymentMethod: paymentMethod || 'CASH',
+          paymentMethod: paymentMethod || 'نقدا',
           notes,
           items: {
             create: items.map((item: any) => ({
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
 
       // Update product stock
       for (const item of items) {
-        await prisma.product.update({
-          where: { id: item.productId },
+      await prisma.product.update({
+        where: { id: item.productId },
           data: {
             stock: {
               decrement: item.quantity
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           amount: paidAmount || 0,
           description: `فاتورة مبيعات ${finalInvoiceNumber}`,
           reference: sale.id,
-          paymentMethod: paymentMethod || 'CASH'
+          paymentMethod: paymentMethod || 'نقدا'
         }
       })
 
@@ -173,27 +173,27 @@ export async function POST(request: NextRequest) {
     if (customerId) {
       const remainingAmount = totalAmount - (paidAmount || 0)
       if (remainingAmount > 0) {
-        await prisma.customer.update({
-          where: { id: customerId },
-          data: {
-            balance: {
-              increment: remainingAmount
-            }
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          balance: {
+            increment: remainingAmount
           }
-        })
+        }
+      })
       }
     }
 
     // Create cashbox transaction for income
-    await prisma.cashboxTransaction.create({
-      data: {
-        type: 'INCOME',
+      await prisma.cashboxTransaction.create({
+        data: {
+          type: 'INCOME',
         amount: paidAmount || 0,
-        description: `فاتورة مبيعات ${invoiceNumber}`,
-        reference: sale.id,
+        description: `فاتورة مبيعات ${generatedInvoiceNumber}`,
+          reference: sale.id,
         paymentMethod: paymentMethod || 'CASH'
-      }
-    })
+        }
+      })
 
     return NextResponse.json({
       success: true,
@@ -244,7 +244,7 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           items: {
-            include: {
+      include: {
               product: true
             }
           },
