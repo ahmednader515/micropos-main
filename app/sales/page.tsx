@@ -9,6 +9,8 @@ interface Product {
   id: string
   name: string
   price: number
+  price2: number
+  price3: number
   stock: number
   barcode: string | null
   sku: string | null
@@ -266,12 +268,22 @@ export default function SalesPage() {
     const currentScreenItems = saleItems[screenNumber] || []
     const existingItem = currentScreenItems.find(item => item.productId === product.id)
     
+    // Determine which price to use
+    let selectedPrice = product.price
+    if (isPriceFixed && selectedMenuPrice) {
+      if (selectedMenuPrice === 2) {
+        selectedPrice = product.price2 || product.price
+      } else if (selectedMenuPrice === 3) {
+        selectedPrice = product.price3 || product.price
+      }
+    }
+    
     if (existingItem) {
       setSaleItems(prev => ({
         ...prev,
         [screenNumber]: prev[screenNumber].map(item =>
           item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
+            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * selectedPrice }
             : item
         )
       }))
@@ -279,10 +291,10 @@ export default function SalesPage() {
       const newItem: SaleItem = {
         productId: product.id,
         name: product.name,
-        price: product.price,
+        price: selectedPrice,
         quantity: 1,
         discount: 0,
-        total: product.price
+        total: selectedPrice
       }
       setSaleItems(prev => ({
         ...prev,
@@ -313,17 +325,30 @@ export default function SalesPage() {
 
   const handleProductClick = (item: SaleItem) => {
     setSelectedProductForDetails(item)
-    setProductDetailsForm({
-      sellingPrice: item.price,
-      quantity: item.quantity,
-      discountAmount: item.discount,
-      discountPercentage: item.price > 0 ? (item.discount / item.price) * 100 : 0,
-      invoiceNote: '',
-      removeFromList: false
-    })
+    
     // Use fixed price if available, otherwise default to price1
     const priceType = isPriceFixed && selectedMenuPrice ? `price${selectedMenuPrice}` as 'price1' | 'price2' | 'price3' : 'price1'
     setSelectedPriceType(priceType)
+    
+    // Get the correct price based on the selected price type
+    const product = products.find(p => p.id === item.productId)
+    let correctPrice = item.price
+    if (product) {
+      if (priceType === 'price2') {
+        correctPrice = product.price2 || product.price
+      } else if (priceType === 'price3') {
+        correctPrice = product.price3 || product.price
+      }
+    }
+    
+    setProductDetailsForm({
+      sellingPrice: correctPrice,
+      quantity: item.quantity,
+      discountAmount: item.discount,
+      discountPercentage: correctPrice > 0 ? (item.discount / correctPrice) * 100 : 0,
+      invoiceNote: '',
+      removeFromList: false
+    })
     setShowProductDetails(true)
   }
 
@@ -375,9 +400,12 @@ export default function SalesPage() {
     if (selectedProductForDetails) {
       const product = products.find(p => p.id === selectedProductForDetails.productId)
       if (product) {
-        // For now, we'll use the same price for all three types
-        // In a real app, you might have different price fields in the product
-        const newPrice = product.price
+        let newPrice = product.price
+        if (priceType === 'price2') {
+          newPrice = product.price2 || product.price
+        } else if (priceType === 'price3') {
+          newPrice = product.price3 || product.price
+        }
         setProductDetailsForm(prev => ({
           ...prev,
           sellingPrice: newPrice
@@ -851,6 +879,12 @@ export default function SalesPage() {
     })
   }
 
+  const formatPriceInArabic = (amount: number) => {
+    // Convert to Arabic numerals
+    const arabicNumerals = amount.toLocaleString('ar-EG')
+    return `${arabicNumerals} ج.م`
+  }
+
   if (loading) {
     return (
       <MainLayout
@@ -959,7 +993,7 @@ export default function SalesPage() {
                   >
                     <div className="font-medium">{product.name}</div>
                     <div className="text-sm text-gray-500">
-                      السعر: {formatCurrency(product.price)} | المخزون: {product.stock}
+                      السعر: {formatCurrency(product.price)} | {formatCurrency(product.price2)} | {formatCurrency(product.price3)} | المخزون: {product.stock}
                     </div>
                   </button>
                 ))}
@@ -1236,7 +1270,7 @@ export default function SalesPage() {
                     >
                       <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
                       <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                        السعر: {formatCurrency(product.price)}
+                        السعر: {formatCurrency(product.price)} | {formatCurrency(product.price2)} | {formatCurrency(product.price3)}
                           </div>
                       <div className="text-xs sm:text-sm text-gray-500">
                         المخزون: {product.stock}
@@ -1323,7 +1357,7 @@ export default function SalesPage() {
                     </button>
                   </div>
                   <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-center">
-                    {formatCurrency(productDetailsForm.sellingPrice)}
+                    {formatPriceInArabic(productDetailsForm.sellingPrice)}
                   </div>
                 </div>
 
@@ -1334,8 +1368,19 @@ export default function SalesPage() {
                         <input
                           type="number"
                           min="1"
-                      value={productDetailsForm.quantity}
-                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                      value={productDetailsForm.quantity === 1 ? '' : productDetailsForm.quantity}
+                      placeholder="1"
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === '') {
+                          setProductDetailsForm(prev => ({ ...prev, quantity: 1 }))
+                        } else {
+                          const numValue = parseInt(value)
+                          if (!isNaN(numValue) && numValue >= 1) {
+                            setProductDetailsForm(prev => ({ ...prev, quantity: numValue }))
+                          }
+                        }
+                      }}
                       className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1357,7 +1402,8 @@ export default function SalesPage() {
                           type="number"
                           step="0.01"
                           min="0"
-                        value={productDetailsForm.discountAmount}
+                        value={productDetailsForm.discountAmount || ''}
+                        placeholder="0.00"
                         onChange={(e) => handleDiscountAmountChange(parseFloat(e.target.value) || 0)}
                         className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       />
@@ -1369,7 +1415,8 @@ export default function SalesPage() {
                         step="0.01"
                         min="0"
                         max="100"
-                        value={productDetailsForm.discountPercentage}
+                        value={productDetailsForm.discountPercentage || ''}
+                        placeholder="0.00"
                         onChange={(e) => handleDiscountPercentageChange(parseFloat(e.target.value) || 0)}
                         className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       />
@@ -1461,16 +1508,52 @@ export default function SalesPage() {
                 {/* Payment Method */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
-                  <select
-                    value={checkoutForm.paymentMethod}
-                    onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="نقدا">نقدا</option>
-                    <option value="اجل">اجل</option>
-                    <option value="بطاقة">بطاقة</option>
-                    <option value="شيك">شيك</option>
-                  </select>
+                  <div className="flex gap-4 flex-wrap">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="نقدا"
+                        checked={checkoutForm.paymentMethod === 'نقدا'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">نقدا</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="اجل"
+                        checked={checkoutForm.paymentMethod === 'اجل'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">اجل</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="بطاقة"
+                        checked={checkoutForm.paymentMethod === 'بطاقة'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">بطاقة</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="شيك"
+                        checked={checkoutForm.paymentMethod === 'شيك'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">شيك</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Total and Paid */}
@@ -1487,7 +1570,8 @@ export default function SalesPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                      value={checkoutForm.paid}
+                      value={checkoutForm.paid || ''}
+                      placeholder="0.00"
                     onChange={(e) => {
                         const paid = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({
@@ -1509,7 +1593,8 @@ export default function SalesPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                      value={checkoutForm.discount}
+                      value={checkoutForm.discount || ''}
+                      placeholder="0.00"
                     onChange={(e) => {
                         const discount = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({ 
@@ -1527,7 +1612,8 @@ export default function SalesPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                      value={checkoutForm.tax}
+                      value={checkoutForm.tax || ''}
+                      placeholder="0.00"
                       onChange={(e) => {
                         const tax = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({ 

@@ -34,6 +34,8 @@ export async function GET() {
         products: products.map(product => ({
           ...product,
           price: Number(product.price),
+          price2: Number(product.price2),
+          price3: Number(product.price3),
           costPrice: Number(product.costPrice)
         }))
       }
