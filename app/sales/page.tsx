@@ -871,7 +871,7 @@ export default function SalesPage() {
       onBack={() => window.history.back()}
       menuOptions={menuOptions}
     >
-      <div className="h-[calc(100vh-3rem)] lg:h-screen flex flex-col -m-4 lg:-m-6" dir="rtl">
+      <div className="sales-page-container flex flex-col -m-4 lg:-m-6" dir="rtl">
         {/* Top Row with Search Bar in Middle and Buttons on Sides */}
         <div className="flex items-center gap-1 p-2 sm:p-4 bg-white border-b flex-shrink-0" dir="rtl">
           {/* Left Side - Barcode Button and Customer Search Button */}
@@ -1059,7 +1059,7 @@ export default function SalesPage() {
         )}
 
         {/* Products Table */}
-        <div className="flex-1 overflow-auto min-h-0 bg-gray-50">
+        <div className="flex-1 overflow-auto min-h-0 bg-gray-50 pb-20">
           <div className="h-full">
             <table className="w-full text-sm" dir="rtl">
               <thead className="bg-gray-50 sticky top-0 z-10">
@@ -1093,7 +1093,7 @@ export default function SalesPage() {
                       </div>
 
         {/* Add Products Button - Fixed above bottom bar */}
-        <div className="flex-shrink-0 sticky bottom-16 bg-gray-50 p-2 sm:p-4">
+        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-40">
                         <button
             onClick={() => setShowProductModal(true)}
             className="p-2 text-white hover:text-white transition-colors bg-blue-600 hover:bg-blue-700 rounded-lg"
@@ -1117,7 +1117,7 @@ export default function SalesPage() {
             </div>
 
         {/* Bottom Section - Fixed at bottom */}
-        <div className="flex-shrink-0 sticky bottom-0 bg-white">
+        <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
           {/* Bottom Bar with Totals */}
           <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
             <div className="text-base sm:text-lg font-semibold">

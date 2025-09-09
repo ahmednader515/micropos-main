@@ -23,6 +23,7 @@ html {
 body {
   color: #111827; /* Tailwind gray-900 */
   background: var(--background);
+  overflow-x: hidden;
 }
 
 /* Ensure form controls default to readable text */
@@ -43,4 +44,18 @@ html[dir="rtl"] body {
 /* Ensure proper RTL layout for flex containers */
 html[dir="rtl"] .flex {
   direction: rtl;
+}
+
+/* Sales page specific styles to prevent overflow */
+.sales-page-container {
+  height: calc(100vh - 4.5rem);
+  max-height: calc(100vh - 4.5rem);
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .sales-page-container {
+    height: calc(100vh - 6.5rem);
+    max-height: calc(100vh - 6.5rem);
+  }
 } 
