@@ -905,7 +905,7 @@ export default function SalesPage() {
       onBack={() => window.history.back()}
       menuOptions={menuOptions}
     >
-      <div className="sales-page-container flex flex-col -m-4 lg:-m-6" dir="rtl">
+      <div className="h-full flex flex-col -m-4 lg:-m-6" dir="rtl">
         {/* Top Row with Search Bar in Middle and Buttons on Sides */}
         <div className="flex items-center gap-1 p-2 sm:p-4 bg-white border-b flex-shrink-0" dir="rtl">
           {/* Left Side - Barcode Button and Customer Search Button */}

@@ -21,7 +21,7 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gray-100 flex-row-reverse">
+    <div className="flex h-screen bg-gray-100 flex-row-reverse overflow-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -38,10 +38,10 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
       </div>
       
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
         {!hideNavbar && (
-          <div className={`sticky top-0 z-30 shadow-sm lg:hidden ${navbarTitle ? 'bg-white' : 'bg-gradient-to-l from-blue-600 to-purple-600'}`}>
+          <div className={`flex-shrink-0 z-30 shadow-sm lg:hidden ${navbarTitle ? 'bg-white' : 'bg-gradient-to-l from-blue-600 to-purple-600'}`}>
             {navbarTitle ? (
               <div className="flex items-center justify-between px-2 py-3 relative">
                 {/* Back button */}
@@ -108,7 +108,7 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
             )}
           </div>
         )}
-        <div className="p-4 lg:p-6">
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
           {children}
         </div>
       </main>
