@@ -18,11 +18,6 @@ const advancedProcessing = [
   'شاشة عرض الأسعار',
 ]
 
-const systemSettings = [
-  'الاعدادات',
-  'الضرائب',
-  'الطابعه',
-]
 
 const backup = [
   'النسخ الاحتياطي للبيانات',
@@ -48,16 +43,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div className="text-gray-700 font-bold mb-2">معالجات متقدمة</div>
           <ul className="space-y-1">
             {advancedProcessing.map((item, idx) => (
-              <li key={idx} className="rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <div className="text-gray-700 font-bold mb-2">اعدادات النظام</div>
-          <ul className="space-y-1">
-            {systemSettings.map((item, idx) => (
               <li key={idx} className="rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition">
                 {item}
               </li>

@@ -59,6 +59,12 @@ export default function SalesPage() {
   const [invoiceSearchNumber, setInvoiceSearchNumber] = useState('')
   const [searchedInvoice, setSearchedInvoice] = useState<any>(null)
   const [loadingInvoice, setLoadingInvoice] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
+  const [calculatorDisplay, setCalculatorDisplay] = useState('0')
+  const [calculatorPreviousValue, setCalculatorPreviousValue] = useState<number | null>(null)
+  const [calculatorOperation, setCalculatorOperation] = useState<string | null>(null)
+  const [calculatorWaitingForNewValue, setCalculatorWaitingForNewValue] = useState(false)
+  const [calculatorExpression, setCalculatorExpression] = useState('')
   const [productDetailsForm, setProductDetailsForm] = useState({
     sellingPrice: 0,
     quantity: 1,
@@ -315,7 +321,7 @@ export default function SalesPage() {
 
   const calculateTotal = () => {
     const currentScreenItems = saleItems[screenNumber] || []
-    return currentScreenItems.reduce((sum, item) => sum + item.total, 0)
+    return currentScreenItems.reduce((sum, item) => sum + getDisplayTotal(item), 0)
   }
 
   const calculateTotalQuantity = () => {
@@ -330,16 +336,8 @@ export default function SalesPage() {
     const priceType = isPriceFixed && selectedMenuPrice ? `price${selectedMenuPrice}` as 'price1' | 'price2' | 'price3' : 'price1'
     setSelectedPriceType(priceType)
     
-    // Get the correct price based on the selected price type
-    const product = products.find(p => p.id === item.productId)
-    let correctPrice = item.price
-    if (product) {
-      if (priceType === 'price2') {
-        correctPrice = product.price2 || product.price
-      } else if (priceType === 'price3') {
-        correctPrice = product.price3 || product.price
-      }
-    }
+    // Get the correct price based on the current display price
+    const correctPrice = getDisplayPrice(item)
     
     setProductDetailsForm({
       sellingPrice: correctPrice,
@@ -616,78 +614,80 @@ export default function SalesPage() {
   }
 
   const handleCalculator = () => {
-    // Create a simple calculator modal
-    const calculatorWindow = window.open('', 'calculator', 'width=400,height=600,scrollbars=no,resizable=yes')
-    if (calculatorWindow) {
-      calculatorWindow.document.write(`
-        <!DOCTYPE html>
-        <html dir="rtl">
-        <head>
-          <title>الحاسبة</title>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-            .calculator { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .display { width: 100%; height: 60px; font-size: 24px; text-align: right; border: 2px solid #ddd; border-radius: 5px; padding: 10px; margin-bottom: 20px; }
-            .buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-            button { height: 60px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; background: #f0f0f0; }
-            button:hover { background: #e0e0e0; }
-            .operator { background: #007bff; color: white; }
-            .operator:hover { background: #0056b3; }
-            .equals { background: #28a745; color: white; }
-            .equals:hover { background: #1e7e34; }
-            .clear { background: #dc3545; color: white; }
-            .clear:hover { background: #c82333; }
-          </style>
-        </head>
-        <body>
-          <div class="calculator">
-            <input type="text" class="display" id="display" readonly>
-            <div class="buttons">
-              <button class="clear" onclick="clearDisplay()">مسح</button>
-              <button onclick="deleteLast()">⌫</button>
-              <button class="operator" onclick="appendToDisplay('/')">÷</button>
-              <button class="operator" onclick="appendToDisplay('*')">×</button>
-              <button onclick="appendToDisplay('7')">7</button>
-              <button onclick="appendToDisplay('8')">8</button>
-              <button onclick="appendToDisplay('9')">9</button>
-              <button class="operator" onclick="appendToDisplay('-')">-</button>
-              <button onclick="appendToDisplay('4')">4</button>
-              <button onclick="appendToDisplay('5')">5</button>
-              <button onclick="appendToDisplay('6')">6</button>
-              <button class="operator" onclick="appendToDisplay('+')">+</button>
-              <button onclick="appendToDisplay('1')">1</button>
-              <button onclick="appendToDisplay('2')">2</button>
-              <button onclick="appendToDisplay('3')">3</button>
-              <button class="equals" onclick="calculate()" rowspan="2">=</button>
-              <button onclick="appendToDisplay('0')" style="grid-column: span 2;">0</button>
-              <button onclick="appendToDisplay('.')">.</button>
-            </div>
-          </div>
-          <script>
-            let display = document.getElementById('display');
-            function appendToDisplay(value) {
-              display.value += value;
-            }
-            function clearDisplay() {
-              display.value = '';
-            }
-            function deleteLast() {
-              display.value = display.value.slice(0, -1);
-            }
-            function calculate() {
-              try {
-                display.value = eval(display.value);
-              } catch (error) {
-                display.value = 'خطأ';
-              }
-            }
-          </script>
-        </body>
-        </html>
-      `)
+    setShowCalculator(true)
+  }
+
+  const handleCalculatorNumber = (num: string) => {
+    if (calculatorWaitingForNewValue) {
+      setCalculatorDisplay(num)
+      setCalculatorWaitingForNewValue(false)
+      setCalculatorExpression(prev => prev + num)
+    } else {
+      setCalculatorDisplay(prev => prev === '0' ? num : prev + num)
+      setCalculatorExpression(prev => prev === '' ? num : prev + num)
     }
   }
+
+  const handleCalculatorOperation = (op: string) => {
+    if (calculatorOperation && !calculatorWaitingForNewValue) {
+      handleCalculatorCalculate()
+    }
+    setCalculatorPreviousValue(parseFloat(calculatorDisplay))
+    setCalculatorOperation(op)
+    setCalculatorWaitingForNewValue(true)
+    
+    // Add operator to expression
+    const operatorSymbol = op === '+' ? '+' : op === '-' ? '-' : op === '*' ? '×' : op === '/' ? '÷' : op
+    setCalculatorExpression(prev => prev + ' ' + operatorSymbol + ' ')
+  }
+
+  const handleCalculatorCalculate = () => {
+    if (calculatorOperation && calculatorPreviousValue !== null) {
+      const prev = calculatorPreviousValue
+      const current = parseFloat(calculatorDisplay)
+      let result: number
+
+      switch (calculatorOperation) {
+        case '+': result = prev + current; break
+        case '-': result = prev - current; break
+        case '*': result = prev * current; break
+        case '/': result = current !== 0 ? prev / current : 0; break
+        default: return
+      }
+
+      setCalculatorDisplay(result.toString())
+      setCalculatorExpression(prev => prev + ' = ' + result.toString())
+      setCalculatorOperation(null)
+      setCalculatorPreviousValue(null)
+      setCalculatorWaitingForNewValue(true)
+    }
+  }
+
+  const handleCalculatorClear = () => {
+    setCalculatorDisplay('0')
+    setCalculatorPreviousValue(null)
+    setCalculatorOperation(null)
+    setCalculatorWaitingForNewValue(false)
+    setCalculatorExpression('')
+  }
+
+  const handleCalculatorDelete = () => {
+    if (calculatorDisplay.length > 1) {
+      setCalculatorDisplay(prev => prev.slice(0, -1))
+      setCalculatorExpression(prev => {
+        // Remove the last character from the expression
+        if (prev.endsWith(' ')) {
+          return prev.slice(0, -3) // Remove " X " pattern
+        } else {
+          return prev.slice(0, -1)
+        }
+      })
+    } else {
+      setCalculatorDisplay('0')
+      setCalculatorExpression('')
+    }
+  }
+
 
   const handleCustomerBalanceInquiry = () => {
     if (selectedCustomer) {
@@ -883,6 +883,28 @@ export default function SalesPage() {
     // Convert to Arabic numerals
     const arabicNumerals = amount.toLocaleString('ar-EG')
     return `${arabicNumerals} ج.م`
+  }
+
+  const getDisplayPrice = (item: SaleItem) => {
+    if (!isPriceFixed || !selectedMenuPrice) {
+      return item.price
+    }
+    
+    const product = products.find(p => p.id === item.productId)
+    if (!product) return item.price
+    
+    if (selectedMenuPrice === 2) {
+      return product.price2 || product.price
+    } else if (selectedMenuPrice === 3) {
+      return product.price3 || product.price
+    }
+    
+    return product.price
+  }
+
+  const getDisplayTotal = (item: SaleItem) => {
+    const displayPrice = getDisplayPrice(item)
+    return displayPrice * item.quantity - item.discount
   }
 
   if (loading) {
@@ -1111,13 +1133,13 @@ export default function SalesPage() {
                       <div className="truncate max-w-xs text-xs sm:text-sm">{item.name}</div>
                     </td>
                     <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(item.price)}</div>
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(getDisplayPrice(item))}</div>
                     </td>
                     <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
                       <div className="text-xs sm:text-sm lg:text-base">{item.quantity}</div>
                     </td>
                     <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(item.total)}</div>
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(getDisplayTotal(item))}</div>
                     </td>
                   </tr>
                 ))}
@@ -1553,12 +1575,12 @@ export default function SalesPage() {
                       />
                       <span className="text-sm text-gray-700">شيك</span>
                     </label>
-                  </div>
                 </div>
+              </div>
 
                 {/* Total and Paid */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
+                <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
                     <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
                       {formatCurrency(checkoutForm.total)}
@@ -1613,7 +1635,7 @@ export default function SalesPage() {
                     step="0.01"
                     min="0"
                       value={checkoutForm.tax || ''}
-                      placeholder="0.00"
+                    placeholder="0.00"
                       onChange={(e) => {
                         const tax = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({ 
@@ -1794,9 +1816,9 @@ export default function SalesPage() {
                   <button
                     onClick={() => setShowReprintModal(false)}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    إلغاء
-                  </button>
+                >
+                  إلغاء
+                </button>
                   <button
                     onClick={searchInvoice}
                     disabled={loadingInvoice || !invoiceSearchNumber.trim()}
@@ -1812,7 +1834,7 @@ export default function SalesPage() {
                       طباعة
                     </button>
                   )}
-                </div>
+              </div>
               </div>
             </div>
           </div>
@@ -1832,7 +1854,7 @@ export default function SalesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              </div>
+          </div>
               
               <div className="p-4">
                 <div className="mb-4">
@@ -1884,9 +1906,9 @@ export default function SalesPage() {
                       تعديل
                     </button>
                   )}
-                </div>
-              </div>
-            </div>
+          </div>
+        </div>
+      </div>
           </div>
         )}
 
@@ -1921,6 +1943,162 @@ export default function SalesPage() {
           </div>
         )}
       </div>
+
+      {/* Calculator Modal */}
+      {showCalculator && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-sm mx-0 sm:mx-4 rounded-t-lg sm:rounded-lg overflow-hidden max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold">الحاسبة</h3>
+                <button
+                  onClick={() => setShowCalculator(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-3 sm:p-4 flex-1">
+                {/* Expression Display */}
+                <div className="mb-2">
+                  <div className="w-full px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-right text-sm sm:text-base text-blue-800 min-h-[40px] flex items-center justify-end">
+                    {calculatorExpression || '0'}
+                  </div>
+                </div>
+                
+                {/* Number Display */}
+                <div className="mb-4">
+                  <div className="w-full px-3 py-4 bg-gray-50 border border-gray-300 rounded-lg text-right text-2xl sm:text-3xl font-mono font-bold min-h-[60px] flex items-center justify-end">
+                    {calculatorDisplay}
+                  </div>
+                </div>
+                
+                {/* Buttons */}
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                  {/* Row 1 */}
+                  <button
+                    onClick={handleCalculatorClear}
+                    className="col-span-2 px-2 py-3 sm:py-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    مسح
+                  </button>
+                  <button
+                    onClick={handleCalculatorDelete}
+                    className="px-2 py-3 sm:py-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    ⌫
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorOperation('/')}
+                    className="px-2 py-3 sm:py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    ÷
+                  </button>
+                  
+                  {/* Row 2 */}
+                  <button
+                    onClick={() => handleCalculatorNumber('7')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    7
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('8')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    8
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('9')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    9
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorOperation('*')}
+                    className="px-2 py-3 sm:py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    ×
+                  </button>
+                  
+                  {/* Row 3 */}
+                  <button
+                    onClick={() => handleCalculatorNumber('4')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    4
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('5')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    5
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('6')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    6
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorOperation('-')}
+                    className="px-2 py-3 sm:py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    -
+                  </button>
+                  
+                  {/* Row 4 */}
+                  <button
+                    onClick={() => handleCalculatorNumber('1')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    1
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('2')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    2
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('3')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    3
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorOperation('+')}
+                    className="px-2 py-3 sm:py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    +
+                  </button>
+                  
+                  {/* Row 5 */}
+                  <button
+                    onClick={() => handleCalculatorNumber('0')}
+                    className="col-span-2 px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumber('.')}
+                    className="px-2 py-3 sm:py-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    .
+                  </button>
+                  <button
+                    onClick={handleCalculatorCalculate}
+                    className="px-2 py-3 sm:py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm sm:text-base font-medium"
+                  >
+                    =
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Notification */}
       {notification && (

@@ -1,17 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
+import BarcodeInput from '@/components/BarcodeInput'
 
 interface Product {
   id: string
   name: string
   price: number
+  price2: number
+  price3: number
   costPrice: number
   stock: number
   barcode: string | null
   sku: string | null
+  expiryDate: string | null
 }
 
 interface Supplier {
@@ -29,59 +33,121 @@ interface PurchaseItem {
   total: number
 }
 
-interface Purchase {
-  id: string
-  invoiceNumber: string
-  supplier: Supplier | null
-  totalAmount: string
-  paidAmount: string
-  discount: string
-  tax: string
-  status: string
-  paymentMethod: string
-  notes: string
-  createdAt: string
-  items: PurchaseItem[]
-}
-
 export default function PurchasesPage() {
-  const [purchases, setPurchases] = useState<Purchase[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filters, setFilters] = useState({
-    supplierId: '',
-    paymentMethod: 'ALL',
-    status: 'ALL',
-    startDate: '',
-    endDate: ''
+  const [barcodeValue, setBarcodeValue] = useState('')
+  const [supplierSearchValue, setSupplierSearchValue] = useState('')
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false)
+  const [showSupplierSearch, setShowSupplierSearch] = useState(false)
+  const [productSearchValue, setProductSearchValue] = useState('')
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const [modalProductSearch, setModalProductSearch] = useState('')
+  const [screenNumber, setScreenNumber] = useState(1)
+  const [showScreenModal, setShowScreenModal] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [showProductDetails, setShowProductDetails] = useState(false)
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<PurchaseItem | null>(null)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [invoiceNumber, setInvoiceNumber] = useState<string>('')
+  const [checkoutSupplierSearch, setCheckoutSupplierSearch] = useState('')
+  const [showCheckoutSupplierDropdown, setShowCheckoutSupplierDropdown] = useState(false)
+  const [showReprintModal, setShowReprintModal] = useState(false)
+  const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false)
+  const [invoiceSearchNumber, setInvoiceSearchNumber] = useState('')
+  const [searchedInvoice, setSearchedInvoice] = useState<any>(null)
+  const [loadingInvoice, setLoadingInvoice] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
+  const [calculatorDisplay, setCalculatorDisplay] = useState('0')
+  const [calculatorPreviousValue, setCalculatorPreviousValue] = useState<number | null>(null)
+  const [calculatorOperation, setCalculatorOperation] = useState<string | null>(null)
+  const [calculatorWaitingForNewValue, setCalculatorWaitingForNewValue] = useState(false)
+  const [calculatorExpression, setCalculatorExpression] = useState('')
+  const [productDetailsForm, setProductDetailsForm] = useState({
+    currentQuantity: 0,
+    newQuantity: 1,
+    totalCost: 0,
+    oldPurchasePrice: 0,
+    newPurchasePrice: 0,
+    purchaseAverage: 0,
+    oldSellingPrice: 0,
+    sellingPrice1: 0,
+    sellingPrice2: 0,
+    sellingPrice3: 0,
+    sellingAverage: 0,
+    expiryDate: '',
+    removeFromList: false
   })
-  const [formData, setFormData] = useState({
-    supplierId: '',
-    items: [] as PurchaseItem[],
-    totalAmount: 0,
-    paidAmount: 0,
-    discount: 0,
-    tax: 0,
+  const [checkoutForm, setCheckoutForm] = useState({
     paymentMethod: 'CASH',
-    notes: ''
+    total: 0,
+    paid: 0,
+    discount: 0,
+    remaining: 0,
+    supplierAccount: '',
+    previousBalance: 0,
+    note: '',
+    tax: 0
+  })
+  const [purchaseItems, setPurchaseItems] = useState<{[screen: number]: PurchaseItem[]}>({
+    1: [],
+    2: [],
+    3: [],
+    4: []
   })
   const [notification, setNotification] = useState<{
-    type: 'success' | 'error'
+    type: 'success' | 'error' | 'info'
     message: string
   } | null>(null)
+  const [invoiceDate, setInvoiceDate] = useState<string>(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
+
+  // Function to play sound when product is added
+  const playAddProductSound = () => {
+    try {
+      const audio = new Audio('/sounds/peep.mp3')
+      audio.volume = 0.5 // Set volume to 50%
+      audio.play().catch(error => {
+        console.log('Could not play sound:', error)
+      })
+    } catch (error) {
+      console.log('Error playing sound:', error)
+    }
+  }
 
   useEffect(() => {
     fetchData()
-  }, [filters])
+  }, [])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.product-search-container') && 
+          !target.closest('.supplier-search-container') &&
+          !target.closest('.checkout-supplier-search-container')) {
+        setShowProductDropdown(false)
+        setShowSupplierDropdown(false)
+        setShowCheckoutSupplierDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       await Promise.all([
-        fetchPurchases(),
         fetchProducts(),
         fetchSuppliers()
       ])
@@ -89,21 +155,6 @@ export default function PurchasesPage() {
       showNotification('error', 'فشل في جلب البيانات')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchPurchases = async () => {
-    const params = new URLSearchParams()
-    if (filters.supplierId) params.append('supplierId', filters.supplierId)
-    if (filters.paymentMethod !== 'ALL') params.append('paymentMethod', filters.paymentMethod)
-    if (filters.status !== 'ALL') params.append('status', filters.status)
-    if (filters.startDate) params.append('startDate', filters.startDate)
-    if (filters.endDate) params.append('endDate', filters.endDate)
-
-    const response = await fetch(`/api/purchases?${params}`)
-    if (response.ok) {
-      const data = await response.json()
-      setPurchases(data)
     }
   }
 
@@ -123,191 +174,676 @@ export default function PurchasesPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      if (formData.items.length === 0) {
-        showNotification('error', 'يجب إضافة منتجات على الأقل')
-        return
-      }
-
-      if (formData.totalAmount <= 0) {
-        showNotification('error', 'المبلغ الإجمالي يجب أن يكون أكبر من صفر')
-        return
-      }
-
-      const response = await fetch('/api/purchases', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplierId: formData.supplierId || null,
-          items: formData.items.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-            discount: item.discount,
-            total: item.total
-          })),
-          totalAmount: formData.totalAmount,
-          paidAmount: formData.paidAmount,
-          discount: formData.discount,
-          tax: formData.tax,
-          paymentMethod: formData.paymentMethod,
-          notes: formData.notes
-        })
-      })
-
-      if (response.ok) {
-        showNotification('success', 'تم إنشاء فاتورة المشتريات بنجاح')
-        setFormData({
-          supplierId: '',
-          items: [],
-          totalAmount: 0,
-          paidAmount: 0,
-          discount: 0,
-          tax: 0,
-          paymentMethod: 'CASH',
-          notes: ''
-        })
-        setShowCreateForm(false)
-        fetchPurchases()
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'فشل في إنشاء فاتورة المشتريات')
-      }
-    } catch (error: any) {
-      showNotification('error', error.message || 'فشل في إنشاء فاتورة المشتريات')
+  const handleBarcodeDetected = (barcode: string) => {
+    setBarcodeValue(barcode)
+    setProductSearchValue(barcode)
+    // Find product by barcode and add to purchase
+    const product = products.find(p => p.barcode === barcode)
+    if (product) {
+      addProductToPurchase(product)
+    } else {
+      showNotification('error', 'المنتج غير موجود')
     }
   }
 
   const addProductToPurchase = (product: Product) => {
-    const existingItem = formData.items.find(item => item.productId === product.id)
-
+    const currentScreenItems = purchaseItems[screenNumber] || []
+    const existingItem = currentScreenItems.find(item => item.productId === product.id)
+    
+    // Use cost price for purchases
+    const selectedPrice = product.costPrice || product.price
+    
     if (existingItem) {
-      setFormData(prev => ({
+      setPurchaseItems(prev => ({
         ...prev,
-        items: prev.items.map(item =>
+        [screenNumber]: prev[screenNumber].map(item =>
           item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
+            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * selectedPrice }
             : item
         )
       }))
     } else {
-      const priceToUse = product.costPrice || product.price || 0
       const newItem: PurchaseItem = {
         productId: product.id,
         name: product.name,
-        price: priceToUse,
+        price: selectedPrice,
         quantity: 1,
         discount: 0,
-        total: priceToUse
+        total: selectedPrice
       }
-      setFormData(prev => ({
+      setPurchaseItems(prev => ({
         ...prev,
-        items: [...prev.items, newItem]
+        [screenNumber]: [...(prev[screenNumber] || []), newItem]
       }))
     }
-    updateTotalAmount()
+    
+    // Play sound when product is added
+    playAddProductSound()
   }
 
   const removeProductFromPurchase = (productId: string) => {
-    setFormData(prev => ({
+    setPurchaseItems(prev => ({
       ...prev,
-      items: prev.items.filter(item => item.productId !== productId)
+      [screenNumber]: prev[screenNumber].filter(item => item.productId !== productId)
     }))
-    updateTotalAmount()
   }
 
-  const updateItemQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) return
-    setFormData(prev => ({
+  const calculateTotal = () => {
+    const currentScreenItems = purchaseItems[screenNumber] || []
+    return currentScreenItems.reduce((sum, item) => sum + getDisplayTotal(item), 0)
+  }
+
+  const calculateTotalQuantity = () => {
+    const currentScreenItems = purchaseItems[screenNumber] || []
+    return currentScreenItems.reduce((sum, item) => sum + item.quantity, 0)
+  }
+
+  const handleProductClick = (item: PurchaseItem) => {
+    setSelectedProductForDetails(item)
+    
+    const product = products.find(p => p.id === item.productId)
+    setProductDetailsForm({
+      currentQuantity: product?.stock || 0,
+      newQuantity: item.quantity,
+      totalCost: item.price * item.quantity,
+      oldPurchasePrice: product?.costPrice || 0,
+      newPurchasePrice: item.price,
+      purchaseAverage: 0,
+      oldSellingPrice: product?.price || 0,
+      sellingPrice1: product?.price || 0,
+      sellingPrice2: product?.price2 || 0,
+      sellingPrice3: product?.price3 || 0,
+      sellingAverage: 0,
+      expiryDate: product?.expiryDate || '',
+      removeFromList: false
+    })
+    setShowProductDetails(true)
+  }
+
+  const handleProductDetailsSubmit = () => {
+    if (!selectedProductForDetails) return
+
+    if (productDetailsForm.removeFromList) {
+      removeProductFromPurchase(selectedProductForDetails.productId)
+    } else {
+      const newTotal = productDetailsForm.newPurchasePrice * productDetailsForm.newQuantity
+      setPurchaseItems(prev => ({
+        ...prev,
+        [screenNumber]: prev[screenNumber].map(item =>
+          item.productId === selectedProductForDetails.productId
+            ? {
+                ...item,
+                price: productDetailsForm.newPurchasePrice,
+                quantity: productDetailsForm.newQuantity,
+                total: newTotal
+              }
+            : item
+        )
+      }))
+    }
+
+    setShowProductDetails(false)
+    setSelectedProductForDetails(null)
+  }
+    
+  const calculatePurchaseAverage = () => {
+    const { oldPurchasePrice, newPurchasePrice, currentQuantity, newQuantity } = productDetailsForm
+    const totalQuantity = currentQuantity + newQuantity
+    if (totalQuantity === 0) return 0
+    
+    const totalValue = (oldPurchasePrice * currentQuantity) + (newPurchasePrice * newQuantity)
+    const average = totalValue / totalQuantity
+    
+    setProductDetailsForm(prev => ({
       ...prev,
-      items: prev.items.map(item =>
-        item.productId === productId
-          ? { ...item, quantity, total: quantity * item.price }
-          : item
-      )
+      purchaseAverage: average,
+      totalCost: newPurchasePrice * newQuantity
     }))
-    updateTotalAmount()
   }
 
-  const updateItemPrice = (productId: string, price: number) => {
-    if (price <= 0) return
-    setFormData(prev => ({
+  const calculateSellingAverage = () => {
+    const { sellingPrice1, sellingPrice2, sellingPrice3 } = productDetailsForm
+    const average = (sellingPrice1 + sellingPrice2 + sellingPrice3) / 3
+    
+    setProductDetailsForm(prev => ({
       ...prev,
-      items: prev.items.map(item =>
-        item.productId === productId
-          ? { ...item, price, total: item.quantity * price }
-          : item
-      )
+      sellingAverage: average
     }))
-    updateTotalAmount()
   }
 
-  const updateTotalAmount = () => {
-    const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0)
-    const total = subtotal - formData.discount + formData.tax
-    setFormData(prev => ({ ...prev, totalAmount: total }))
+  const handleSupplierSelect = (supplier: Supplier) => {
+    setSelectedSupplier(supplier)
+    setSupplierSearchValue(supplier.name)
+    setShowSupplierDropdown(false)
+    setShowSupplierSearch(false)
   }
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
+  const handleSupplierClear = () => {
+    setSelectedSupplier(null)
+    setSupplierSearchValue('')
+    setShowSupplierSearch(false)
+  }
+
+  const handleCheckoutClick = () => {
+    const currentScreenItems = purchaseItems[screenNumber] || []
+    if (currentScreenItems.length === 0) {
+      showNotification('error', 'يرجى إضافة منتجات إلى القائمة أولاً')
+      return
+    }
+    
+    const total = calculateTotal()
+    setCheckoutForm(prev => ({
+      ...prev,
+      total: total,
+      remaining: total - prev.paid - prev.discount + prev.tax,
+      supplierAccount: selectedSupplier?.name || '',
+      previousBalance: selectedSupplier ? parseFloat(selectedSupplier.balance) : 0
+    }))
+    setCheckoutSupplierSearch('')
+    setShowCheckoutSupplierDropdown(false)
+    setShowCheckoutModal(true)
+  }
+
+  const handleCheckoutSubmit = async () => {
+    try {
+      const currentScreenItems = purchaseItems[screenNumber] || []
+      
+      // Validate that we have items
+      if (currentScreenItems.length === 0) {
+        showNotification('error', 'يرجى إضافة منتجات إلى القائمة أولاً')
+        return
+      }
+      
+      // Prepare purchase items for database
+      const purchaseItemsForDB = currentScreenItems.map(item => {
+        const product = products.find(p => p.id === item.productId)
+        if (!product) {
+          throw new Error(`المنتج ${item.name} غير موجود في قاعدة البيانات`)
+        }
+        return {
+          productId: item.productId,
+          name: product.name,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount || 0,
+          total: item.price * item.quantity - (item.discount || 0)
+        }
+      })
+
+      // Find supplier ID if supplier is selected
+      let supplierId = null
+      if (selectedSupplier) {
+        supplierId = selectedSupplier.id
+      } else if (checkoutForm.supplierAccount.trim() !== '') {
+        // Try to find supplier by name
+        const supplier = suppliers.find(s => 
+          s.name.toLowerCase() === checkoutForm.supplierAccount.toLowerCase()
+        )
+        if (supplier) {
+          supplierId = supplier.id
+        }
+      }
+
+      // Validate purchase data
+      if (!checkoutForm.total || checkoutForm.total <= 0) {
+        showNotification('error', 'المبلغ الإجمالي يجب أن يكون أكبر من صفر')
+        return
+      }
+
+      if (!checkoutForm.paymentMethod) {
+        showNotification('error', 'يرجى اختيار طريقة الدفع')
+        return
+      }
+
+      // Prepare purchase data (invoice number will be generated by API)
+      const purchaseData = {
+        supplierId: supplierId || null,
+        totalAmount: parseFloat(checkoutForm.total.toString()),
+        paidAmount: parseFloat(checkoutForm.paid.toString()) || 0,
+        discount: parseFloat(checkoutForm.discount.toString()) || 0,
+        tax: parseFloat(checkoutForm.tax.toString()) || 0,
+        paymentMethod: checkoutForm.paymentMethod,
+        notes: checkoutForm.note || '',
+        items: purchaseItemsForDB
+      }
+
+      // Log the data being sent
+      console.log('Sending purchase data:', purchaseData)
+
+      // Save to database
+      const response = await fetch('/api/purchases', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(purchaseData)
+      })
+
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+
+      if (!response.ok) {
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError)
+          throw new Error(`فشل في حفظ الفاتورة - HTTP ${response.status}`)
+        }
+        console.error('API Error:', errorData)
+        throw new Error(errorData.error || `فشل في حفظ الفاتورة - HTTP ${response.status}`)
+      }
+
+      let result
+      try {
+        result = await response.json()
+      } catch (parseError) {
+        console.error('Failed to parse success response:', parseError)
+        throw new Error('فشل في قراءة استجابة الخادم')
+      }
+      
+      console.log('Success response:', result)
+      
+      // Validate response structure
+      if (!result.purchase || !result.purchase.invoiceNumber) {
+        console.error('Invalid response structure:', result)
+        throw new Error('استجابة غير صحيحة من الخادم')
+      }
+      
+      // Update local state with the generated invoice number
+      setInvoiceNumber(result.purchase.invoiceNumber)
+      setShowCheckoutModal(false)
+      setShowSuccessModal(true)
+      setPurchaseItems(prev => ({ ...prev, [screenNumber]: [] }))
+      
+      // Show success notification
+      showNotification('success', result.message || 'تم حفظ الفاتورة بنجاح')
+
+    } catch (error) {
+      console.error('Error saving invoice:', error)
+      showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء حفظ الفاتورة')
+    }
+  }
+
+  const handlePrintPDF = async () => {
+    try {
+      if (!invoiceNumber) {
+        showNotification('error', 'رقم الفاتورة غير متوفر')
+        return
+      }
+
+      console.log('Searching for invoice:', invoiceNumber)
+
+      // First, we need to get the purchase ID from the invoice number
+      const response = await fetch(`/api/purchases?invoiceNumber=${invoiceNumber}`)
+      console.log('API response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error('فشل في العثور على الفاتورة')
+      }
+
+      const data = await response.json()
+      console.log('API response data:', data)
+      
+      if (!data.purchases || data.purchases.length === 0) {
+        throw new Error('الفاتورة غير موجودة')
+      }
+
+      const purchase = data.purchases[0]
+      console.log('Found purchase:', purchase)
+      
+      // Generate and download PDF
+      const pdfResponse = await fetch(`/api/pdf/purchase?id=${purchase.id}`)
+      if (!pdfResponse.ok) {
+        throw new Error('فشل في توليد الفاتورة')
+      }
+
+      // Create blob and download
+      const blob = await pdfResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `purchase_${invoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      showNotification('success', 'تم تحميل الفاتورة بنجاح')
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الفاتورة')
+    }
+  }
+
+  const handleFinish = () => {
+    setShowSuccessModal(false)
+    setInvoiceNumber('')
+  }
+
+  const handleCheckoutSupplierSelect = (supplier: Supplier) => {
+    setCheckoutForm(prev => ({
+      ...prev,
+      supplierAccount: supplier.name,
+      previousBalance: parseFloat(supplier.balance)
+    }))
+    setCheckoutSupplierSearch(supplier.name)
+    setShowCheckoutSupplierDropdown(false)
+  }
+
+  const filteredCheckoutSuppliers = suppliers.filter(supplier =>
+    supplier.name.toLowerCase().includes(checkoutSupplierSearch.toLowerCase())
+  )
+
+  const filteredSuppliers = suppliers.filter(supplier =>
+    supplier.name.toLowerCase().includes(supplierSearchValue.toLowerCase())
+  )
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchValue.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(productSearchValue)) ||
+    (product.sku && product.sku.toLowerCase().includes(productSearchValue.toLowerCase()))
+  )
+
+  const filteredModalProducts = products.filter(product =>
+    product.name.toLowerCase().includes(modalProductSearch.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(modalProductSearch)) ||
+    (product.sku && product.sku.toLowerCase().includes(modalProductSearch.toLowerCase()))
+  )
+
+  const handleProductSelect = (product: Product) => {
+    addProductToPurchase(product)
+    setProductSearchValue('')
+    setShowProductDropdown(false)
+  }
+
+  // Menu option handlers
+  const handleReprintInvoice = () => {
+    setShowReprintModal(true)
+    setInvoiceSearchNumber('')
+    setSearchedInvoice(null)
+  }
+
+  const handleEditInvoice = () => {
+    setShowEditInvoiceModal(true)
+    setInvoiceSearchNumber('')
+    setSearchedInvoice(null)
+  }
+
+  const handleCalculator = () => {
+    setShowCalculator(true)
+  }
+
+  const handleCalculatorNumber = (num: string) => {
+    if (calculatorWaitingForNewValue) {
+      setCalculatorDisplay(num)
+      setCalculatorWaitingForNewValue(false)
+      setCalculatorExpression(prev => prev + num)
+    } else {
+      setCalculatorDisplay(prev => prev === '0' ? num : prev + num)
+      setCalculatorExpression(prev => prev === '' ? num : prev + num)
+    }
+  }
+
+  const handleCalculatorOperation = (op: string) => {
+    if (calculatorOperation && !calculatorWaitingForNewValue) {
+      handleCalculatorCalculate()
+    }
+    setCalculatorPreviousValue(parseFloat(calculatorDisplay))
+    setCalculatorOperation(op)
+    setCalculatorWaitingForNewValue(true)
+    
+    // Add operator to expression
+    const operatorSymbol = op === '+' ? '+' : op === '-' ? '-' : op === '*' ? '×' : op === '/' ? '÷' : op
+    setCalculatorExpression(prev => prev + ' ' + operatorSymbol + ' ')
+  }
+
+  const handleCalculatorCalculate = () => {
+    if (calculatorOperation && calculatorPreviousValue !== null) {
+      const prev = calculatorPreviousValue
+      const current = parseFloat(calculatorDisplay)
+      let result: number
+
+      switch (calculatorOperation) {
+        case '+': result = prev + current; break
+        case '-': result = prev - current; break
+        case '*': result = prev * current; break
+        case '/': result = current !== 0 ? prev / current : 0; break
+        default: return
+      }
+
+      setCalculatorDisplay(result.toString())
+      setCalculatorExpression(prev => prev + ' = ' + result.toString())
+      setCalculatorOperation(null)
+      setCalculatorPreviousValue(null)
+      setCalculatorWaitingForNewValue(true)
+    }
+  }
+
+  const handleCalculatorClear = () => {
+    setCalculatorDisplay('0')
+    setCalculatorPreviousValue(null)
+    setCalculatorOperation(null)
+    setCalculatorWaitingForNewValue(false)
+    setCalculatorExpression('')
+  }
+
+  const handleCalculatorDelete = () => {
+    if (calculatorDisplay.length > 1) {
+      setCalculatorDisplay(prev => prev.slice(0, -1))
+      setCalculatorExpression(prev => {
+        // Remove the last character from the expression
+        if (prev.endsWith(' ')) {
+          return prev.slice(0, -3) // Remove " X " pattern
+        } else {
+          return prev.slice(0, -1)
+        }
+      })
+    } else {
+      setCalculatorDisplay('0')
+      setCalculatorExpression('')
+    }
+  }
+
+  const handleSupplierBalanceInquiry = () => {
+    if (selectedSupplier) {
+      showNotification('info', `رصيد المورد ${selectedSupplier.name}: ${formatCurrency(parseFloat(selectedSupplier.balance))}`)
+    } else {
+      showNotification('error', 'يرجى اختيار مورد أولاً')
+    }
+  }
+
+  const handleToggleBarcodeReader = () => {
+    setShowBarcodeScanner(true)
+  }
+
+  const handleAddNewProduct = () => {
+    window.location.href = '/inventory/new-product'
+  }
+
+  const handleViewInvoices = () => {
+    window.location.href = '/reports'
+  }
+
+  const handleClearProducts = () => {
+    setPurchaseItems(prev => ({ ...prev, [screenNumber]: [] }))
+    showNotification('success', 'تم مسح المنتجات من القائمة')
+  }
+
+  // Invoice search and handling functions
+  const handleSearchInvoice = async () => {
+    if (!invoiceSearchNumber.trim()) {
+      showNotification('error', 'يرجى إدخال رقم الفاتورة')
+      return
+    }
+
+    setLoadingInvoice(true)
+    try {
+      // Remove # prefix if present, since database stores numbers without prefix
+      const cleanInvoiceNumber = invoiceSearchNumber.replace(/^#/, '')
+      const response = await fetch(`/api/purchases?invoiceNumber=${cleanInvoiceNumber}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Handle both array format and object with purchases property
+        const purchases = Array.isArray(data) ? data : (data.purchases || [])
+        if (purchases.length > 0) {
+          setSearchedInvoice(purchases[0])
+          showNotification('success', 'تم العثور على الفاتورة')
+        } else {
+          showNotification('error', 'لم يتم العثور على الفاتورة')
+          setSearchedInvoice(null)
+        }
+      } else {
+        showNotification('error', 'خطأ في البحث عن الفاتورة')
+        setSearchedInvoice(null)
+      }
+    } catch (error) {
+      showNotification('error', 'خطأ في البحث عن الفاتورة')
+      setSearchedInvoice(null)
+    } finally {
+      setLoadingInvoice(false)
+    }
+  }
+
+  const handleReprintSearchedInvoice = async () => {
+    if (!searchedInvoice) {
+      showNotification('error', 'يرجى البحث عن الفاتورة أولاً')
+      return
+    }
+
+    try {
+      const pdfResponse = await fetch(`/api/pdf/purchase?id=${searchedInvoice.id}`)
+      if (!pdfResponse.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+      
+      const blob = await pdfResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `purchase-${searchedInvoice.invoiceNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      showNotification('success', 'تم طباعة الفاتورة')
+      setShowReprintModal(false)
+    } catch (error) {
+      showNotification('error', 'خطأ في طباعة الفاتورة')
+    }
+  }
+
+  const handleEditSearchedInvoice = async () => {
+    if (!searchedInvoice) {
+      showNotification('error', 'يرجى البحث عن الفاتورة أولاً')
+      return
+    }
+
+    try {
+      // Set the selected supplier
+      if (searchedInvoice.supplier) {
+        // Fetch the supplier's current balance
+        try {
+          const supplierResponse = await fetch(`/api/suppliers/${searchedInvoice.supplier.id}`)
+          if (supplierResponse.ok) {
+            const supplierData = await supplierResponse.json()
+            setSelectedSupplier({
+              id: searchedInvoice.supplier.id,
+              name: searchedInvoice.supplier.name,
+              balance: supplierData.balance || '0'
+            })
+          } else {
+            setSelectedSupplier({
+              id: searchedInvoice.supplier.id,
+              name: searchedInvoice.supplier.name,
+              balance: '0'
+            })
+          }
+        } catch (error) {
+          console.error('Error fetching supplier balance:', error)
+          setSelectedSupplier({
+            id: searchedInvoice.supplier.id,
+            name: searchedInvoice.supplier.name,
+            balance: '0'
+          })
+        }
+        setSupplierSearchValue(searchedInvoice.supplier.name)
+      } else {
+        setSelectedSupplier(null)
+        setSupplierSearchValue('')
+      }
+
+      // Convert purchase items to the format expected by the purchase screen
+      console.log('Searched invoice:', searchedInvoice)
+      console.log('Purchase items:', searchedInvoice.items)
+      
+      if (!searchedInvoice.items || !Array.isArray(searchedInvoice.items)) {
+        showNotification('error', 'لا توجد منتجات في هذه الفاتورة')
+        return
+      }
+
+      const convertedItems: PurchaseItem[] = searchedInvoice.items.map((item: any) => ({
+        productId: item.productId,
+        name: item.name, // The API already flattens the product name
+        price: Number(item.price),
+        quantity: item.quantity,
+        discount: item.discount || 0,
+        total: Number(item.total)
+      }))
+
+      // Load the products into the current screen
+      setPurchaseItems(prev => ({
+        ...prev,
+        [screenNumber]: convertedItems
+      }))
+
+      // Close the modal and show success message
+      setShowEditInvoiceModal(false)
+      setSearchedInvoice(null)
+      setInvoiceSearchNumber('')
+      showNotification('success', 'تم تحميل الفاتورة للتعديل')
+    } catch (error) {
+      console.error('Error loading invoice for editing:', error)
+      showNotification('error', 'خطأ في تحميل الفاتورة للتعديل')
+    }
+  }
+
+  const menuOptions = [
+    { label: 'اضافة منتج جديد', onClick: handleAddNewProduct },
+    { label: 'اعادة طباعة الفاتورة', onClick: handleReprintInvoice },
+    { label: 'تعديل فاتورة مشتريات', onClick: handleEditInvoice }
+  ]
+
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3000)
   }
 
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('ar-SA', { style: 'currency', currency: 'SAR' })
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return amount.toLocaleString('ar-EG', {
+      style: 'currency',
+      currency: 'EGP'
     })
   }
 
-  const getPaymentMethodLabel = (method: string) => {
-    const labels: { [key: string]: string } = {
-      CASH: 'نقداً',
-      CARD: 'بطاقة',
-      BANK_TRANSFER: 'تحويل بنكي',
-      CHECK: 'شيك',
-      MOBILE_PAYMENT: 'دفع إلكتروني',
-      CASHBOX: 'الصندوق'
-    }
-    return labels[method] || method
+  const formatPriceInArabic = (amount: number) => {
+    // Convert to Arabic numerals
+    const arabicNumerals = amount.toLocaleString('ar-EG')
+    return `${arabicNumerals} ج.م`
   }
 
-  const getStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      PENDING: 'معلق',
-      COMPLETED: 'مكتمل',
-      CANCELLED: 'ملغي',
-      RETURNED: 'مرتجع'
-    }
-    return labels[status] || status
+  const getDisplayTotal = (item: PurchaseItem) => {
+    return item.price * item.quantity - item.discount
   }
-
-  const getStatusColor = (status: string) => {
-    const colors: { [key: string]: string } = {
-      PENDING: 'text-yellow-600',
-      COMPLETED: 'text-green-600',
-      CANCELLED: 'text-red-600',
-      RETURNED: 'text-gray-600'
-    }
-    return colors[status] || 'text-gray-600'
-  }
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.barcode && product.barcode.includes(searchTerm)) ||
-    (product.sku && product.sku.includes(searchTerm))
-  )
 
   if (loading) {
     return (
-      <MainLayout navbarTitle="المشتريات" onBack={() => window.history.back()} menuOptions={[]}>
+      <MainLayout
+        navbarTitle="المشتريات"
+        onBack={() => window.history.back()}
+        menuOptions={menuOptions}
+      >
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">جاري التحميل...</div>
         </div>
@@ -316,346 +852,833 @@ export default function PurchasesPage() {
   }
 
   return (
-    <MainLayout navbarTitle="المشتريات" onBack={() => window.history.back()} menuOptions={[]}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">المشتريات</h1>
-          <p className="mt-2 text-gray-600">إدارة فواتير المشتريات</p>
-        </div>
-
-        {/* Action Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-          >
-            إنشاء فاتورة مشتريات جديدة
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">تصفية النتائج</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">المورد</label>
-              <select
-                value={filters.supplierId}
-                onChange={(e) => setFilters({ ...filters, supplierId: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">جميع الموردين</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text.sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
-              <select
-                value={filters.paymentMethod}
-                onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="ALL">جميع الطرق</option>
-                <option value="CASH">نقداً</option>
-                <option value="CARD">بطاقة</option>
-                <option value="BANK_TRANSFER">تحويل بنكي</option>
-                <option value="CHECK">شيك</option>
-                <option value="MOBILE_PAYMENT">دفع إلكتروني</option>
-                <option value="CASHBOX">الصندوق</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="ALL">جميع الحالات</option>
-                <option value="PENDING">معلق</option>
-                <option value="COMPLETED">مكتمل</option>
-                <option value="CANCELLED">ملغي</option>
-                <option value="RETURNED">مرتجع</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
-              <input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
-              <input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+    <MainLayout
+      navbarTitle="المشتريات"
+      onBack={() => window.history.back()}
+      menuOptions={menuOptions}
+    >
+      <div className="h-full flex flex-col -m-4 lg:-m-6" dir="rtl">
+        {/* Date Input Field */}
+        <div className="bg-white border-b flex-shrink-0" dir="rtl">
+          <div className="flex items-center">
+            <label className="w-[35%] text-sm font-medium text-gray-700 px-3 py-2">تاريخ الفاتورة:</label>
+            <input
+              type="date"
+              value={invoiceDate}
+              onChange={(e) => setInvoiceDate(e.target.value)}
+              className="w-[65%] py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-center"
+            />
           </div>
         </div>
 
-        {/* Create Purchase Form */}
-        {showCreateForm && (
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">إنشاء فاتورة مشتريات جديدة</h3>
+        {/* Top Row with Search Bar and Buttons */}
+        <div className="flex items-center gap-1 p-2 sm:p-4 bg-white border-b flex-shrink-0" dir="rtl">
+          {/* Left Side - Barcode Button */}
+          <div className="flex items-center gap-1">
+            {/* Barcode Button */}
+            <button
+              onClick={() => setShowBarcodeScanner(true)}
+              className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded"
+              title="مسح الباركود"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1zm12 0h2a1 1 0 001-1V6a1 1 0 00-1-1h-2a1 1 0 00-1 1v1a1 1 0 001 1zM5 20h2a1 1 0 001-1v-1a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1z"
+                />
+              </svg>
+            </button>
+          </div>
 
-            {/* Product Search */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">البحث عن المنتجات</label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="ابحث بالاسم، الباركود، أو SKU"
-              />
-
-              {/* Product Results */}
-              {searchTerm && (
-                <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.id}
-                      onClick={() => addProductToPurchase(product)}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">
-                            الباركود: {product.barcode || 'N/A'} | SKU: {product.sku || 'N/A'}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(product.costPrice || product.price)}</div>
-                          <div className="text-sm text-gray-500">المخزون: {product.stock}</div>
-                        </div>
-                      </div>
+          {/* Middle - Search Bar */}
+          <div className="flex-1 min-w-0 max-w-lg mx-1 relative product-search-container">
+            <input
+              type="text"
+              value={productSearchValue}
+              onChange={(e) => {
+                setProductSearchValue(e.target.value)
+                setShowProductDropdown(true)
+              }}
+              onFocus={() => setShowProductDropdown(true)}
+              placeholder="ابحث عن منتج او استخدم الكاميرا"
+              className="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
+            />
+            {productSearchValue.trim() !== '' && filteredProducts.length > 0 && showProductDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                {filteredProducts.map(product => (
+                  <button
+                    key={product.id}
+                    onClick={() => handleProductSelect(product)}
+                    className="w-full text-right px-4 py-2 hover:bg-gray-100 border-b last:border-b-0"
+                  >
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-sm text-gray-500">
+                      السعر: {formatCurrency(product.costPrice || product.price)} | المخزون: {product.stock}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Purchase Items */}
-            {formData.items.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-md font-medium text-gray-900 mb-3">المنتجات المختارة</h4>
-                <div className="space-y-3">
-                  {formData.items.map(item => (
-                    <div key={item.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-sm text-gray-500">
-                          السعر: {formatCurrency(item.price)} | الكمية: {item.quantity}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItemQuantity(item.productId, parseInt(e.target.value) || 1)}
-                          className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.price}
-                          onChange={(e) => updateItemPrice(item.productId, parseFloat(e.target.value) || 0)}
-                          className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
-                        />
-                        <span className="font-medium w-20 text-right">
-                          {formatCurrency(item.total)}
-                        </span>
-                        <button
-                          onClick={() => removeProductFromPurchase(item.productId)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          حذف
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  </button>
+                ))}
               </div>
             )}
-
-            {/* Purchase Details Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">المورد</label>
-                  <select
-                    value={formData.supplierId}
-                    onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">اختر المورد (اختياري)</option>
-                    {suppliers.map(supplier => (
-                      <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
-                  <select
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="CASH">نقداً</option>
-                    <option value="CARD">بطاقة</option>
-                    <option value="BANK_TRANSFER">تحويل بنكي</option>
-                    <option value="CHECK">شيك</option>
-                    <option value="MOBILE_PAYMENT">دفع إلكتروني</option>
-                    <option value="CASHBOX">الصندوق</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الخصم</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.discount}
-                    onChange={(e) => {
-                      const discount = parseFloat(e.target.value) || 0
-                      setFormData({ ...formData, discount })
-                      updateTotalAmount()
-                    }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الضريبة</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.tax}
-                    onChange={(e) => {
-                      const tax = parseFloat(e.target.value) || 0
-                      setFormData({ ...formData, tax })
-                      updateTotalAmount()
-                    }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ المدفوع</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.paidAmount}
-                    onChange={(e) => setFormData({ ...formData, paidAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ملاحظات إضافية"
-                  rows={3}
-                />
-              </div>
-
-              {/* Total Summary */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span>الإجمالي:</span>
-                  <span>{formatCurrency(formData.totalAmount)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  إنشاء الفاتورة
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
           </div>
-        )}
 
-        {/* Purchases List */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">فواتير المشتريات</h3>
+          {/* Right Side - Save Button */}
+          <div className="flex items-center gap-1">
+            {/* Save Button */}
+            <button
+              onClick={handleCheckoutClick}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded transition-colors text-sm whitespace-nowrap"
+            >
+              حفظ
+            </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm" dir="rtl">
-              <thead className="bg-gray-50">
+        </div>
+
+
+        {/* Products Table */}
+        <div className="flex-1 overflow-auto min-h-0 bg-gray-50 pb-20">
+          <div className="h-full">
+            <table className="w-full text-sm" dir="rtl">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">رقم الفاتورة</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">التاريخ</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">المورد</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">المبلغ الإجمالي</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">المدفوع</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">طريقة الدفع</th>
-                  <th className="px-6 py-3 text-right font-medium text-gray-500">الحالة</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">المنتج</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">التكلفة</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الكمية</th>
+                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الاجمالي</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {purchases.map(purchase => (
-                  <tr key={purchase.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-900 font-medium">{purchase.invoiceNumber}</td>
-                    <td className="px-6 py-4 text-gray-900">{formatDate(purchase.createdAt)}</td>
-                    <td className="px-6 py-4 text-gray-900">{purchase.supplier?.name || 'مورد نقدي'}</td>
-                    <td className="px-6 py-4 text-gray-900 font-medium">{formatCurrency(parseFloat(purchase.totalAmount))}</td>
-                    <td className="px-6 py-4 text-gray-900">{formatCurrency(parseFloat(purchase.paidAmount))}</td>
-                    <td className="px-6 py-4"><span className="font-medium text-blue-600">{getPaymentMethodLabel(purchase.paymentMethod)}</span></td>
-                    <td className="px-6 py-4"><span className={`font-medium ${getStatusColor(purchase.status)}`}>{getStatusLabel(purchase.status)}</span></td>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {(purchaseItems[screenNumber] || []).map((item) => (
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)}>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="truncate max-w-xs text-xs sm:text-sm">{item.name}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(item.price)}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{item.quantity}</div>
+                    </td>
+                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
+                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(getDisplayTotal(item))}</div>
+                    </td>
                   </tr>
                 ))}
-                {purchases.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">لا توجد فواتير مشتريات</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
 
-      {/* Notification */}
-      {notification && (
-        <FlashNotification
-          type={notification.type}
-          message={notification.message}
-          isVisible={!!notification}
-          onClose={() => setNotification(null)}
-        />
-      )}
+        {/* Add Products Button - Fixed above bottom bar */}
+        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-40">
+          <button
+            onClick={() => setShowProductModal(true)}
+            className="p-2 text-white hover:text-white transition-colors bg-blue-600 hover:bg-blue-700 rounded-lg"
+            title="إضافة منتجات"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Bottom Section - Fixed at bottom */}
+        <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
+          {/* Bottom Bar with Totals */}
+          <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
+            <div className="text-base sm:text-lg font-semibold">
+              الإجمالي: {formatCurrency(calculateTotal())}
+            </div>
+            <div className="text-sm text-gray-600">
+              ع.ق: {calculateTotalQuantity()}
+            </div>
+          </div>
+        </div>
+
+
+        {/* Product Selection Modal */}
+        {showProductModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50" dir="rtl">
+            <div className="bg-white w-full max-h-[70vh] rounded-t-lg overflow-hidden">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                <h3 className="text-base sm:text-lg font-semibold">اختيار المنتجات</h3>
+                <button
+                  onClick={() => {
+                    setShowProductModal(false)
+                    setModalProductSearch('')
+                  }}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Search Bar in Modal */}
+              <div className="p-3 sm:p-4 border-b">
+                <input
+                  type="text"
+                  value={modalProductSearch}
+                  onChange={(e) => setModalProductSearch(e.target.value)}
+                  placeholder="ابحث عن منتج..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+              
+              <div className="p-2 sm:p-4 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+                  {filteredModalProducts.map(product => (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        addProductToPurchase(product)
+                        setShowProductModal(false)
+                        setModalProductSearch('')
+                      }}
+                      className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                        السعر: {formatCurrency(product.costPrice || product.price)}
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-500">
+                        المخزون: {product.stock}
+                      </div>
+                      {product.barcode && (
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          الباركود: {product.barcode}
+                        </div>
+                      )}
+                      {product.sku && (
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          SKU: {product.sku}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {filteredModalProducts.length === 0 && modalProductSearch.trim() !== '' && (
+                    <div className="col-span-full text-center text-gray-500 py-8">
+                      لا توجد منتجات تطابق البحث
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Product Details Modal */}
+        {showProductDetails && selectedProductForDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-6xl mx-0 sm:mx-4 rounded-t-lg sm:rounded-lg overflow-hidden max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0">
+                <h3 className="text-sm sm:text-lg font-semibold truncate">تفاصيل المنتج - {selectedProductForDetails.name}</h3>
+                <button
+                  onClick={() => setShowProductDetails(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1 flex-shrink-0"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-2 sm:p-6 space-y-2 sm:space-y-4 overflow-y-auto flex-1">
+                {/* Row 1: Quantities and Total Cost */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 sm:gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">الكمية الموجودة</label>
+                    <div className="px-1 py-1.5 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {productDetailsForm.currentQuantity}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">الكمية الجديدة</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={productDetailsForm.newQuantity}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, newQuantity: parseInt(e.target.value) || 1 }))}
+                      className="w-full px-1 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                    />
+                  </div>
+                  <div className="col-span-1 sm:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">اجمالي التكلفة</label>
+                    <div className="px-1 py-1.5 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {formatCurrency(productDetailsForm.totalCost)}
+                    </div>
+                  </div>
+                  <div className="hidden sm:block"></div>
+                </div>
+
+                {/* Row 2: Purchase Prices and Average */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 sm:gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">سعر الشراء القديم</label>
+                    <div className="px-1 py-1.5 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {formatCurrency(productDetailsForm.oldPurchasePrice)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">سعر الشراء الجديد</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productDetailsForm.newPurchasePrice}
+                      onChange={(e) => setProductDetailsForm(prev => ({ 
+                        ...prev, 
+                        newPurchasePrice: parseFloat(e.target.value) || 0,
+                        totalCost: (parseFloat(e.target.value) || 0) * prev.newQuantity
+                      }))}
+                      className="w-full px-1 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight overflow-hidden text-ellipsis">المتوسط الحسابي</label>
+                    <div className="px-1 py-1.5 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {formatCurrency(productDetailsForm.purchaseAverage)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="h-3 mb-1"></div>
+                    <button
+                      onClick={calculatePurchaseAverage}
+                      className="w-full px-1 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
+                    >
+                      احسب
+                    </button>
+                  </div>
+                </div>
+
+                {/* Row 3: Selling Prices and Average */}
+                <div className="grid grid-cols-5 sm:grid-cols-3 lg:grid-cols-6 gap-0.5 sm:gap-3">
+                  <div>
+                    <div className="h-6 flex items-end mb-1">
+                      <label className="text-xs font-medium text-gray-700 leading-tight overflow-hidden text-ellipsis">سعر البيع القديم</label>
+                    </div>
+                    <div className="px-0.5 py-1 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {formatCurrency(productDetailsForm.oldSellingPrice)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="h-6 flex items-end mb-1">
+                      <label className="text-xs font-medium text-gray-700 leading-tight overflow-hidden text-ellipsis">سعر البيع 1</label>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productDetailsForm.sellingPrice1}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, sellingPrice1: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-0.5 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="h-6 flex items-end mb-1">
+                      <label className="text-xs font-medium text-gray-700 leading-tight overflow-hidden text-ellipsis">سعر البيع 2</label>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productDetailsForm.sellingPrice2}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, sellingPrice2: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-0.5 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="h-6 flex items-end mb-1">
+                      <label className="text-xs font-medium text-gray-700 leading-tight overflow-hidden text-ellipsis">سعر البيع 3</label>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productDetailsForm.sellingPrice3}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, sellingPrice3: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-0.5 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="h-6 flex items-end mb-1">
+                      <label className="text-xs font-medium text-gray-700 leading-tight overflow-hidden text-ellipsis">المتوسط الحسابي</label>
+                    </div>
+                    <div className="px-0.5 py-1 bg-gray-50 border border-gray-300 rounded text-xs font-medium">
+                      {formatCurrency(productDetailsForm.sellingAverage)}
+                    </div>
+                  </div>
+                  <div className="hidden sm:block">
+                    <div className="h-6 flex items-end mb-1">
+                      <div></div>
+                    </div>
+                    <button
+                      onClick={calculateSellingAverage}
+                      className="w-full px-1 sm:px-3 py-1 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
+                    >
+                      احسب
+                    </button>
+                  </div>
+                </div>
+
+                {/* Calculate Button Row for Mobile */}
+                <div className="sm:hidden">
+                  <button
+                    onClick={calculateSellingAverage}
+                    className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
+                  >
+                    احسب المتوسط الحسابي
+                  </button>
+                </div>
+
+                {/* Row 4: Expiry Date and Remove Option */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">تاريخ الانتهاء</label>
+                    <div className="px-2 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium">
+                      {productDetailsForm.expiryDate ? new Date(productDetailsForm.expiryDate).toLocaleDateString('ar-EG') : 'غير محدد'}
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="removeFromList"
+                      checked={productDetailsForm.removeFromList}
+                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, removeFromList: e.target.checked }))}
+                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="removeFromList" className="mr-2 text-xs sm:text-sm text-red-600 font-medium">
+                      الغاء من القائمة
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 border-t bg-gray-50 flex-shrink-0">
+                <button
+                  onClick={() => setShowProductDetails(false)}
+                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                >
+                  رجوع
+                </button>
+                <button
+                  onClick={handleProductDetailsSubmit}
+                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                >
+                  حفظ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Checkout Modal */}
+        {showCheckoutModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-lg mx-0 sm:mx-4 rounded-t-lg sm:rounded-lg overflow-hidden max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold">إتمام المشتريات</h3>
+                <button
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
+                  <div className="flex gap-4 flex-wrap">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="CASH"
+                        checked={checkoutForm.paymentMethod === 'CASH'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">نقدا</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="CREDIT"
+                        checked={checkoutForm.paymentMethod === 'CREDIT'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">اجل</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="CARD"
+                        checked={checkoutForm.paymentMethod === 'CARD'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">بطاقة</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="CHECK"
+                        checked={checkoutForm.paymentMethod === 'CHECK'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">شيك</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Total and Paid */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
+                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                      {formatCurrency(checkoutForm.total)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">المدفوع</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={checkoutForm.paid || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const paid = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({
+                          ...prev,
+                          paid: paid,
+                          remaining: prev.total - paid - prev.discount + prev.tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Discount and Tax */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الخصم</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={checkoutForm.discount || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const discount = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({ 
+                          ...prev, 
+                          discount,
+                          remaining: prev.total - prev.paid - discount + prev.tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الضريبة</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={checkoutForm.tax || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const tax = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({ 
+                          ...prev, 
+                          tax,
+                          remaining: prev.total - prev.paid - prev.discount + tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Remaining Amount */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.remaining)}
+                  </div>
+                </div>
+
+                {/* Supplier Account */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">حفظ الفاتورة لحساب مورد</label>
+                  {selectedSupplier ? (
+                    <div className="px-2 sm:px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg text-sm font-medium text-blue-900">
+                      {selectedSupplier.name} - الرصيد: {formatCurrency(parseFloat(selectedSupplier.balance))}
+                    </div>
+                  ) : (
+                    <div className="relative checkout-supplier-search-container">
+                      <input
+                        type="text"
+                        value={checkoutSupplierSearch}
+                        onChange={(e) => {
+                          setCheckoutSupplierSearch(e.target.value)
+                          setShowCheckoutSupplierDropdown(true)
+                        }}
+                        onFocus={() => setShowCheckoutSupplierDropdown(true)}
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="ابحث عن مورد..."
+                      />
+                      {checkoutSupplierSearch.trim() !== '' && filteredCheckoutSuppliers.length > 0 && showCheckoutSupplierDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                          {filteredCheckoutSuppliers.map(supplier => (
+                            <button
+                              key={supplier.id}
+                              onClick={() => handleCheckoutSupplierSelect(supplier)}
+                              className="w-full text-right px-3 py-2 hover:bg-gray-100 border-b last:border-b-0 text-sm"
+                            >
+                              <div className="font-medium">{supplier.name}</div>
+                              <div className="text-xs text-gray-500">الرصيد: {formatCurrency(parseFloat(supplier.balance))}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Previous Balance */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الرصيد السابق</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.previousBalance)}
+                  </div>
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ملاحظة</label>
+                  <textarea
+                    value={checkoutForm.note}
+                    onChange={(e) => setCheckoutForm(prev => ({ ...prev, note: e.target.value }))}
+                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    rows={2}
+                    placeholder="أدخل ملاحظة..."
+                  />
+                </div>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-2 sm:gap-3 p-3 sm:p-4 border-t bg-gray-50 flex-shrink-0">
+                <button
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                >
+                  رجوع
+                </button>
+                <button
+                  onClick={handleCheckoutSubmit}
+                  className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                >
+                  حفظ الفاتورة
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">تم حفظ الفاتورة</h3>
+                <p className="text-sm text-gray-600 mb-4">رقم الفاتورة: {invoiceNumber}</p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handlePrintPDF}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    طباعة
+                  </button>
+                  <button
+                    onClick={handleFinish}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                  >
+                    انهاء
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reprint Invoice Modal */}
+        {showReprintModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="p-4 sm:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">اعادة طباعة الفاتورة</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input
+                      type="text"
+                      value={invoiceSearchNumber}
+                      onChange={(e) => setInvoiceSearchNumber(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="أدخل رقم الفاتورة..."
+                    />
+                  </div>
+
+                  {searchedInvoice && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-2">تفاصيل الفاتورة</h4>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>رقم الفاتورة: {searchedInvoice.invoiceNumber}</p>
+                        <p>المورد: {searchedInvoice.supplier?.name || 'غير محدد'}</p>
+                        <p>المجموع: {formatCurrency(parseFloat(searchedInvoice.totalAmount))}</p>
+                        <p>التاريخ: {new Date(searchedInvoice.createdAt).toLocaleDateString('ar-EG')}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setShowReprintModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                  >
+                    رجوع
+                  </button>
+                  <button
+                    onClick={handleSearchInvoice}
+                    disabled={!invoiceSearchNumber.trim() || loadingInvoice}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
+                  >
+                    {loadingInvoice ? 'جاري البحث...' : 'بحث'}
+                  </button>
+                  {searchedInvoice && (
+                    <button
+                      onClick={handleReprintSearchedInvoice}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      طباعة
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Invoice Modal */}
+        {showEditInvoiceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white w-full max-w-md mx-4 rounded-lg overflow-hidden">
+              <div className="p-4 sm:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">تعديل فاتورة مشتريات</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input
+                      type="text"
+                      value={invoiceSearchNumber}
+                      onChange={(e) => setInvoiceSearchNumber(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="أدخل رقم الفاتورة..."
+                    />
+                  </div>
+
+                  {searchedInvoice && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-2">تفاصيل الفاتورة</h4>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>رقم الفاتورة: {searchedInvoice.invoiceNumber}</p>
+                        <p>المورد: {searchedInvoice.supplier?.name || 'غير محدد'}</p>
+                        <p>المجموع: {formatCurrency(parseFloat(searchedInvoice.totalAmount))}</p>
+                        <p>التاريخ: {new Date(searchedInvoice.createdAt).toLocaleDateString('ar-EG')}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setShowEditInvoiceModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                  >
+                    رجوع
+                  </button>
+                  <button
+                    onClick={handleSearchInvoice}
+                    disabled={!invoiceSearchNumber.trim() || loadingInvoice}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
+                  >
+                    {loadingInvoice ? 'جاري البحث...' : 'بحث'}
+                  </button>
+                  {searchedInvoice && (
+                    <button
+                      onClick={handleEditSearchedInvoice}
+                      className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                    >
+                      تعديل
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification */}
+        {notification && (
+          <FlashNotification
+            type={notification.type}
+            message={notification.message}
+            isVisible={!!notification}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </div>
     </MainLayout>
   )
 }

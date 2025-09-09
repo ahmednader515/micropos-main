@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const invoiceNumber = searchParams.get('invoiceNumber')
 
     // Build where clause
     const where: any = {}
@@ -26,6 +27,10 @@ export async function GET(request: NextRequest) {
     
     if (status && status !== 'ALL') {
       where.status = status
+    }
+    
+    if (invoiceNumber) {
+      where.invoiceNumber = invoiceNumber
     }
     
     if (startDate || endDate) {
@@ -51,7 +56,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    return NextResponse.json(purchases.map(purchase => ({
+    const formattedPurchases = purchases.map(purchase => ({
       id: purchase.id,
       invoiceNumber: purchase.invoiceNumber,
       supplier: purchase.supplier ? {
@@ -75,7 +80,16 @@ export async function GET(request: NextRequest) {
         discount: item.discount,
         total: item.total
       }))
-    })))
+    }))
+
+    // If searching by invoice number, return single purchase format
+    if (invoiceNumber) {
+      return NextResponse.json({
+        purchases: formattedPurchases
+      })
+    }
+
+    return NextResponse.json(formattedPurchases)
   } catch (error) {
     console.error('Error fetching purchases:', error)
     return NextResponse.json(
@@ -111,10 +125,19 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    let invoiceNumber = 'PUR-001'
+    let invoiceNumber = '1'
     if (lastPurchase) {
-      const lastNumber = parseInt(lastPurchase.invoiceNumber.split('-')[1])
-      invoiceNumber = `PUR-${String(lastNumber + 1).padStart(3, '0')}`
+      // Handle both old format (PUR-001) and new format (1, 2, 3)
+      let lastNumber = 0
+      if (lastPurchase.invoiceNumber.includes('-')) {
+        // Old format: PUR-001 -> extract 001
+        const parts = lastPurchase.invoiceNumber.split('-')
+        lastNumber = parseInt(parts[1]) || 0
+      } else {
+        // New format: 1, 2, 3
+        lastNumber = parseInt(lastPurchase.invoiceNumber) || 0
+      }
+      invoiceNumber = (lastNumber + 1).toString()
     }
 
     // Update product stock
