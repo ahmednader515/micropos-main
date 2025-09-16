@@ -86,7 +86,7 @@ export async function GET() {
     doc.setFont('Amiri', 'normal')
     let currentY = tableTop + rowHeight
     
-    customers.forEach((customer, index) => {
+    customers.forEach((customer: any, index: number) => {
       // Check if we need a new page
       if (currentY + rowHeight > pageHeight - margin) {
         doc.addPage()

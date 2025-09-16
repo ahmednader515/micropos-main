@@ -81,7 +81,7 @@ export async function GET() {
     let currentY = tableTop + rowHeight
     
     if (suppliers.length > 0) {
-      suppliers.forEach((supplier, index) => {
+      suppliers.forEach((supplier: any, index: number) => {
         // Check if we need a new page
         if (currentY + rowHeight > pageHeight - margin) {
           doc.addPage()

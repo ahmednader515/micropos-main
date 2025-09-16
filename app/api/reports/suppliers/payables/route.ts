@@ -22,7 +22,7 @@ export async function GET() {
 
     // Calculate computed balances from purchases and payments for suppliers with positive balances
     const computedBalances = await Promise.all(
-      suppliers.map(async (supplier) => {
+      suppliers.map(async (supplier: any) => {
         const purchases = await prisma.purchase.findMany({
           where: { supplierId: supplier.id }
         })
@@ -31,8 +31,8 @@ export async function GET() {
           where: { supplierId: supplier.id }
         })
 
-        const totalPurchases = purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-        const totalPayments = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+        const totalPurchases = purchases.reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+        const totalPayments = payments.reduce((sum: number, payment: any) => sum + Number(payment.amount), 0)
         const computedBalance = totalPurchases - totalPayments
 
         return {
@@ -174,7 +174,7 @@ export async function GET() {
     }
     
     // Add total row at the bottom
-    const totalRemainingBalance = computedBalances.reduce((sum, supplier) => {
+    const totalRemainingBalance = computedBalances.reduce((sum: number, supplier: any) => {
       return sum + supplier.totalRemaining
     }, 0)
     

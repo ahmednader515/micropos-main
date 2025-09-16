@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       where: { name: { in: categoryNameArr } },
       select: { id: true, name: true },
     })
-    const nameToId = new Map(existingCategories.map((c) => [c.name, c.id]))
+    const nameToId = new Map(existingCategories.map((c: any) => [c.name, c.id]))
 
     if (createMissingCategories) {
       const missing = categoryNameArr.filter((n) => !nameToId.has(n))

@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     let totalAmount = 0
     let totalDiscount = 0
 
-    invoice.items.forEach((item, index) => {
+    invoice.items.forEach((item: any, index: number) => {
       // Check if we need a new page
       if (currentY + 15 > pageHeight - margin - 50) {
         doc.addPage()

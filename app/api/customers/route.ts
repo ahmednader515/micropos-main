@@ -18,7 +18,7 @@ export async function GET() {
       await prisma.$disconnect()
 
       return {
-        customers: customers.map((c) => ({
+        customers: customers.map((c: any) => ({
           ...c,
           balance: Number(c.balance),
           creditLimit: Number(c.creditLimit),

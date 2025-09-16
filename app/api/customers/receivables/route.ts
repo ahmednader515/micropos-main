@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     })
 
     const invoices = sales
-      .map((s) => ({
+      .map((s: any) => ({
         id: s.id,
         invoiceNumber: s.invoiceNumber,
         customer: s.customer,
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         paid: Number(s.paidAmount),
         remaining: Number(s.totalAmount) - Number(s.paidAmount),
       }))
-      .filter((i) => i.remaining > 0)
+      .filter((i: any) => i.remaining > 0)
 
     const byCustomerMap = new Map<string, { customerId: string; name: string; remaining: number }>()
     let totalRemaining = 0

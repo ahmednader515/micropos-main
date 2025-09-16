@@ -83,7 +83,7 @@ export async function GET() {
     doc.setFont('Amiri', 'normal')
     let currentY = tableTop + rowHeight
     
-    customers.forEach((customer, index) => {
+    customers.forEach((customer: any, index: number) => {
       // Check if we need a new page
       if (currentY + rowHeight > pageHeight - margin) {
         doc.addPage()
@@ -142,12 +142,12 @@ export async function GET() {
     })
     
     // Add total row at the bottom
-    const totalCredit = customers.reduce((sum, customer) => {
+    const totalCredit = customers.reduce((sum: number, customer: any) => {
       const balance = Number(customer.balance || 0)
       return sum + (balance > 0 ? balance : 0)
     }, 0)
     
-    const totalDebit = customers.reduce((sum, customer) => {
+    const totalDebit = customers.reduce((sum: number, customer: any) => {
       const balance = Number(customer.balance || 0)
       return sum + (balance < 0 ? Math.abs(balance) : 0)
     }, 0)

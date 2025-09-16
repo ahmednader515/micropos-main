@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     await prisma.$disconnect()
 
     // Filter customers with positive balance
-    const customersWithBalance = customers.filter(c => Number(c.balance) > 0)
+    const customersWithBalance = customers.filter((c: any) => Number(c.balance) > 0)
 
     // Create PDF using jsPDF
     const doc = new jsPDF({
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       doc.setFont('Amiri', 'normal')
       let currentY = tableTop + headerRowHeight // Start after the taller header row
       
-      customersWithBalance.forEach((customer, index) => {
+      customersWithBalance.forEach((customer: any, index: number) => {
         // Check if we need a new page
         if (currentY + rowHeight > pageHeight - margin) {
           doc.addPage()
@@ -159,12 +159,12 @@ export async function GET(request: Request) {
       })
       
       // Add total row at the bottom for summary
-      const totalReceivables = customersWithBalance.reduce((sum, customer) => sum + Number(customer.balance || 0), 0)
-      const totalCreditInvoices = customersWithBalance.reduce((sum, customer) => {
+      const totalReceivables = customersWithBalance.reduce((sum: number, customer: any) => sum + Number(customer.balance || 0), 0)
+      const totalCreditInvoices = customersWithBalance.reduce((sum: number, customer: any) => {
         const balance = Number(customer.balance || 0)
         return sum + (balance * 0.8)
       }, 0)
-      const totalOpeningBalance = customersWithBalance.reduce((sum, customer) => {
+      const totalOpeningBalance = customersWithBalance.reduce((sum: number, customer: any) => {
         const balance = Number(customer.balance || 0)
         return sum + (balance * 0.2)
       }, 0)
@@ -212,8 +212,8 @@ export async function GET(request: Request) {
       doc.setFontSize(12)
       doc.setFont('Amiri', 'normal')
       let currentY = tableTop + headerRowHeight // Start after the header row
-      
-      customersWithBalance.forEach((customer, index) => {
+
+      customersWithBalance.forEach((customer: any, index: number) => {
         // Check if we need a new page
         if (currentY + rowHeight > pageHeight - margin) {
           doc.addPage()
@@ -252,7 +252,7 @@ export async function GET(request: Request) {
       })
       
       // Add total row at the bottom for detailed
-      const totalReceivables = customersWithBalance.reduce((sum, customer) => sum + Number(customer.balance || 0), 0)
+      const totalReceivables = customersWithBalance.reduce((sum: number, customer: any) => sum + Number(customer.balance || 0), 0)
       
       // Check if we need a new page for the total
       if (currentY + rowHeight > pageHeight - margin) {

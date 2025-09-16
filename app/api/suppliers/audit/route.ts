@@ -33,7 +33,7 @@ export async function GET() {
       paymentNetBySupplier.set(pay.supplierId, (paymentNetBySupplier.get(pay.supplierId) || 0) + sign * amt)
     }
 
-    const rows = suppliers.map((s) => {
+    const rows = suppliers.map((s: any) => {
       const outstanding = outstandingBySupplier.get(s.id) || 0
       const paymentAdj = paymentNetBySupplier.get(s.id) || 0
       const computed = outstanding + paymentAdj

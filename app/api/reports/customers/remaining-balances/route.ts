@@ -13,7 +13,7 @@ export async function GET() {
     await prisma.$disconnect()
 
     // Filter customers with positive balance (remaining amounts)
-    const customersWithRemaining = customers.filter(c => Number(c.balance) > 0)
+    const customersWithRemaining = customers.filter((c: any) => Number(c.balance) > 0)
 
     // Create PDF using jsPDF
     const doc = new jsPDF({
@@ -83,7 +83,7 @@ export async function GET() {
     doc.setFont('Amiri', 'normal')
     let currentY = tableTop + rowHeight
     
-    customersWithRemaining.forEach((customer, index) => {
+    customersWithRemaining.forEach((customer: any, index: number) => {
       // Check if we need a new page
       if (currentY + rowHeight > pageHeight - margin) {
         doc.addPage()
@@ -126,7 +126,7 @@ export async function GET() {
     })
     
     // Add total row at the bottom
-    const totalRemaining = customersWithRemaining.reduce((sum, customer) => sum + Number(customer.balance || 0), 0)
+    const totalRemaining = customersWithRemaining.reduce((sum: number, customer: any) => sum + Number(customer.balance || 0), 0)
     
     // Check if we need a new page for the total
     if (currentY + rowHeight > pageHeight - margin) {

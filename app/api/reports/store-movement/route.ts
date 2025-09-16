@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     
     // Also get all transactions to calculate balance properly
     const allCashboxTransactions = await prisma.cashboxTransaction.findMany()
-    const calculatedBalance = allCashboxTransactions.reduce((acc, transaction) => {
+    const calculatedBalance = allCashboxTransactions.reduce((acc: number, transaction: any) => {
       return transaction.type === 'INCOME'
         ? acc + Number(transaction.amount)
         : acc - Number(transaction.amount)
@@ -138,31 +138,31 @@ export async function GET(request: NextRequest) {
     console.log('💰 Store Movement API - Calculated balance:', calculatedBalance)
 
     // Calculate period cashbox balance
-    const periodCashboxBalance = cashboxTransactions.reduce((sum, transaction) => {
+    const periodCashboxBalance = cashboxTransactions.reduce((sum: number, transaction: any) => {
       return sum + (transaction.type === 'INCOME' ? Number(transaction.amount) : -Number(transaction.amount))
     }, 0)
 
     // Calculate sales metrics
-    const totalSales = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const cashSales = sales.filter(sale => sale.paymentMethod === 'CASH').reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const creditSales = sales.filter(sale => sale.paymentMethod !== 'CASH').reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const cardSales = sales.filter(sale => sale.paymentMethod === 'CARD').reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const checkSales = sales.filter(sale => sale.paymentMethod === 'CHECK').reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const totalReturns = sales.filter(sale => sale.status === 'REFUNDED').reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const totalDiscounts = sales.reduce((sum, sale) => sum + Number(sale.discount), 0)
-    const totalTaxes = sales.reduce((sum, sale) => sum + Number(sale.tax), 0)
+    const totalSales = sales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const cashSales = sales.filter((sale: any) => sale.paymentMethod === 'CASH').reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const creditSales = sales.filter((sale: any) => sale.paymentMethod !== 'CASH').reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const cardSales = sales.filter((sale: any) => sale.paymentMethod === 'CARD').reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const checkSales = sales.filter((sale: any) => sale.paymentMethod === 'CHECK').reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const totalReturns = sales.filter((sale: any) => sale.status === 'REFUNDED').reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0)
+    const totalDiscounts = sales.reduce((sum: number, sale: any) => sum + Number(sale.discount), 0)
+    const totalTaxes = sales.reduce((sum: number, sale: any) => sum + Number(sale.tax), 0)
     
     // Calculate customer balances
     const customerInvoiceBalance = sales
-      .filter(sale => sale.paymentMethod !== 'CASH')
-      .reduce((sum, sale) => sum + (Number(sale.totalAmount) - Number(sale.paidAmount)), 0)
+      .filter((sale: any) => sale.paymentMethod !== 'CASH')
+      .reduce((sum: number, sale: any) => sum + (Number(sale.totalAmount) - Number(sale.paidAmount)), 0)
     
-    const customerOpeningBalance = customerBalances.reduce((sum, customer) => sum + Number(customer.balance), 0)
-    const customerPaymentsTotal = customerPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const customerOpeningBalance = customerBalances.reduce((sum: number, customer: any) => sum + Number(customer.balance), 0)
+    const customerPaymentsTotal = customerPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount), 0)
     
     // Calculate profits
-    const totalCosts = sales.reduce((sum, sale) => {
-      const saleCost = sale.items.reduce((itemSum, item) => {
+    const totalCosts = sales.reduce((sum: number, sale: any) => {
+      const saleCost = sale.items.reduce((itemSum: number, item: any) => {
         return itemSum + (Number(item.product.costPrice) * item.quantity)
       }, 0)
       return sum + saleCost
@@ -170,23 +170,23 @@ export async function GET(request: NextRequest) {
     const totalProfits = totalSales - totalCosts
 
     // Calculate purchase metrics
-    const totalPurchases = purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-    const cashPurchases = purchases.filter(purchase => purchase.paymentMethod === 'CASH').reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-    const creditPurchases = purchases.filter(purchase => purchase.paymentMethod !== 'CASH').reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-    const cardPurchases = purchases.filter(purchase => purchase.paymentMethod === 'CARD').reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-    const checkPurchases = purchases.filter(purchase => purchase.paymentMethod === 'CHECK').reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-    const purchaseReturns = purchases.filter(purchase => purchase.status === 'RETURNED').reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
+    const totalPurchases = purchases.reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+    const cashPurchases = purchases.filter((purchase: any) => purchase.paymentMethod === 'CASH').reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+    const creditPurchases = purchases.filter((purchase: any) => purchase.paymentMethod !== 'CASH').reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+    const cardPurchases = purchases.filter((purchase: any) => purchase.paymentMethod === 'CARD').reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+    const checkPurchases = purchases.filter((purchase: any) => purchase.paymentMethod === 'CHECK').reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
+    const purchaseReturns = purchases.filter((purchase: any) => purchase.status === 'RETURNED').reduce((sum: number, purchase: any) => sum + Number(purchase.totalAmount), 0)
     
     // Calculate supplier balances
     const supplierInvoiceBalance = purchases
-      .filter(purchase => purchase.paymentMethod !== 'CASH')
-      .reduce((sum, purchase) => sum + (Number(purchase.totalAmount) - Number(purchase.paidAmount)), 0)
+      .filter((purchase: any) => purchase.paymentMethod !== 'CASH')
+      .reduce((sum: number, purchase: any) => sum + (Number(purchase.totalAmount) - Number(purchase.paidAmount)), 0)
     
-    const supplierOpeningBalance = supplierBalances.reduce((sum, supplier) => sum + Number(supplier.balance), 0)
-    const supplierPaymentsTotal = supplierPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const supplierOpeningBalance = supplierBalances.reduce((sum: number, supplier: any) => sum + Number(supplier.balance), 0)
+    const supplierPaymentsTotal = supplierPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount), 0)
 
     // Calculate expenses
-    const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0)
+    const totalExpenses = expenses.reduce((sum: number, expense: any) => sum + Number(expense.amount), 0)
 
     // Calculate net profits after expenses
     const netProfits = totalProfits - totalExpenses

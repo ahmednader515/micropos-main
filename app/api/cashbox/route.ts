@@ -40,7 +40,7 @@ export async function GET() {
     const recentTransactions = allTransactions.slice(0, 100)
 
     // Calculate total balance from ALL transactions
-    const balance = allTransactions.reduce((acc, transaction) => {
+    const balance = allTransactions.reduce((acc: number, transaction: any) => {
       return transaction.type === 'INCOME'
         ? acc + Number(transaction.amount)
         : acc - Number(transaction.amount)
@@ -52,7 +52,7 @@ export async function GET() {
 
     return NextResponse.json({
       balance: balance.toFixed(2),
-      transactions: recentTransactions.map(t => ({
+      transactions: recentTransactions.map((t: any) => ({
         id: t.id,
         type: t.type,
         amount: t.amount.toString(),
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     // Prevent negative balance on EXPENSE
     if (type === 'EXPENSE') {
       const currentTransactions = await prisma.cashboxTransaction.findMany()
-      const currentBalance = currentTransactions.reduce((acc, transaction) => {
+      const currentBalance = currentTransactions.reduce((acc: number, transaction: any) => {
         return transaction.type === 'INCOME'
           ? acc + Number(transaction.amount)
           : acc - Number(transaction.amount)

@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
     const sign = direction === 'increase' ? 1 : -1
 
-    const updates = products.map((p) => {
+    const updates = products.map((p: any) => {
       const next: Record<string, number> = {}
       const apply = (current: any) => {
         const currentNum = Number(current || 0)

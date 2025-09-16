@@ -33,7 +33,7 @@ export async function GET() {
       await prisma.$disconnect()
 
       return {
-        products: products.map(product => ({
+        products: products.map((product: any) => ({
           ...product,
           price: Number(product.price),
           costPrice: Number(product.costPrice)
