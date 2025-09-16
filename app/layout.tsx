@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from 'next'
-import { Cairo } from 'next/font/google'
+import { Noto_Sans_Arabic } from 'next/font/google'
 import './globals.css'
 
-const cairo = Cairo({ subsets: ['arabic', 'latin'], weight: ['400', '500', '700'] })
+const notoSansArabic = Noto_Sans_Arabic({ 
+  subsets: ['arabic', 'latin'], 
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-noto-sans-arabic'
+})
 
 export const metadata: Metadata = {
   title: 'microPOS - Point of Sale System',
@@ -21,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={cairo.className}>{children}</body>
+      <body className={notoSansArabic.className}>{children}</body>
     </html>
   )
 } 

@@ -28,20 +28,31 @@ export async function GET() {
   }
 
   try {
-    const transactions = await prisma.cashboxTransaction.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100
+    // Ensure Prisma is connected
+    await prisma.$connect()
+    
+    // Get all transactions for accurate balance calculation
+    const allTransactions = await prisma.cashboxTransaction.findMany({
+      orderBy: { createdAt: 'desc' }
     })
 
-    const balance = transactions.reduce((acc, transaction) => {
+    // Get only recent transactions for display (last 100)
+    const recentTransactions = allTransactions.slice(0, 100)
+
+    // Calculate total balance from ALL transactions
+    const balance = allTransactions.reduce((acc, transaction) => {
       return transaction.type === 'INCOME'
         ? acc + Number(transaction.amount)
         : acc - Number(transaction.amount)
     }, 0)
 
+    console.log('💰 Cashbox API - Total transactions:', allTransactions.length)
+    console.log('💰 Cashbox API - Recent transactions for display:', recentTransactions.length)
+    console.log('💰 Cashbox API - Calculated balance:', balance)
+
     return NextResponse.json({
       balance: balance.toFixed(2),
-      transactions: transactions.map(t => ({
+      transactions: recentTransactions.map(t => ({
         id: t.id,
         type: t.type,
         amount: t.amount.toString(),
@@ -57,6 +68,9 @@ export async function GET() {
       { error: 'فشل في جلب بيانات الصندوق' },
       { status: 500 }
     )
+  } finally {
+    // Disconnect Prisma client
+    await prisma.$disconnect()
   }
 }
 
@@ -79,6 +93,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Ensure Prisma is connected
+    await prisma.$connect()
+    
     const body = await request.json()
     const { type, amount, description, reference, paymentMethod = 'CASH' } = body
 
@@ -143,5 +160,8 @@ export async function POST(request: NextRequest) {
       { error: 'فشل في إتمام العملية' },
       { status: 500 }
     )
+  } finally {
+    // Disconnect Prisma client
+    await prisma.$disconnect()
   }
 }

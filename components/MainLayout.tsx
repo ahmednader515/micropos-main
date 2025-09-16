@@ -14,9 +14,10 @@ interface MainLayoutProps {
   onBack?: () => void
   menuOptions?: MenuOption[]
   hideNavbar?: boolean
+  removeTopPadding?: boolean
 }
 
-export default function MainLayout({ children, navbarTitle, onBack, menuOptions, hideNavbar }: MainLayoutProps) {
+export default function MainLayout({ children, navbarTitle, onBack, menuOptions, hideNavbar, removeTopPadding }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -108,7 +109,7 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
             )}
           </div>
         )}
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
+        <div className={`flex-1 overflow-auto ${removeTopPadding ? 'px-4 pb-4 lg:px-6 lg:pb-6' : 'p-4 lg:p-6'}`}>
           {children}
         </div>
       </main>
