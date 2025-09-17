@@ -3,6 +3,20 @@
 import { useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
+import SalesReportsPopup from '@/components/SalesReportsPopup'
+import ProfitsReportsPopup from '@/components/ProfitsReportsPopup'
+import DiscountsReportsPopup from '@/components/DiscountsReportsPopup'
+import CustomerAccountPopup from '@/components/CustomerAccountPopup'
+import CustomerInputPopup from '@/components/CustomerInputPopup'
+import PaymentMethodPopup from '@/components/PaymentMethodPopup'
+import PurchasesReportsPopup from '@/components/PurchasesReportsPopup'
+import SupplierAccountPopup from '@/components/SupplierAccountPopup'
+import SupplierInputPopup from '@/components/SupplierInputPopup'
+import SupplierPaymentMethodPopup from '@/components/SupplierPaymentMethodPopup'
+import InventoryCategoryInputPopup from '@/components/InventoryCategoryInputPopup'
+import ProductMovementInputPopup from '@/components/ProductMovementInputPopup'
+import ExpensesAccountInputPopup from '@/components/ExpensesAccountInputPopup'
+import ExpensesPaymentMethodPopup from '@/components/ExpensesPaymentMethodPopup'
 
 interface InquiryItem {
   id: string
@@ -26,20 +40,783 @@ export default function InquiriesPage() {
     return today.toISOString().split('T')[0]
   })
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [showSalesReportsPopup, setShowSalesReportsPopup] = useState(false)
+  const [showProfitsReportsPopup, setShowProfitsReportsPopup] = useState(false)
+  const [showDiscountsReportsPopup, setShowDiscountsReportsPopup] = useState(false)
+  const [showCustomerAccountPopup, setShowCustomerAccountPopup] = useState(false)
+  const [showCustomerInputPopup, setShowCustomerInputPopup] = useState(false)
+  const [showPaymentMethodPopup, setShowPaymentMethodPopup] = useState(false)
+  const [showPurchasesReportsPopup, setShowPurchasesReportsPopup] = useState(false)
+  const [showSupplierAccountPopup, setShowSupplierAccountPopup] = useState(false)
+  const [showSupplierInputPopup, setShowSupplierInputPopup] = useState(false)
+  const [showSupplierPaymentMethodPopup, setShowSupplierPaymentMethodPopup] = useState(false)
+  const [showInventoryCategoryInputPopup, setShowInventoryCategoryInputPopup] = useState(false)
+  const [showProductMovementInputPopup, setShowProductMovementInputPopup] = useState(false)
+  const [showExpensesAccountInputPopup, setShowExpensesAccountInputPopup] = useState(false)
+  const [showExpensesPaymentMethodPopup, setShowExpensesPaymentMethodPopup] = useState(false)
+  const [currentCustomerPopup, setCurrentCustomerPopup] = useState<{ title: string; apiEndpoint: string } | null>(null)
+  const [currentSupplierPopup, setCurrentSupplierPopup] = useState<{ title: string; apiEndpoint: string } | null>(null)
+  const [currentInventoryPopup, setCurrentInventoryPopup] = useState<{ title: string; apiEndpoint: string } | null>(null)
+  const [currentExpensesPopup, setCurrentExpensesPopup] = useState<{ title: string; apiEndpoint: string } | null>(null)
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3000)
   }
 
+  const generateCreditInvoicesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'credit',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `credit_invoices_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateCancelledSalesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'cancelled',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cancelled_sales_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateQuotesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'quotes',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `quotes_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateTaxByCategoryPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'tax-by-category',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tax_by_category_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateTaxByCustomerPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'tax-by-customer',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tax_by_customer_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateCustomerBalancesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/customers/balances?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `customer_balances_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generatePaymentMovementPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/customers/payment-movement?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `payment_movement_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateReturnedPurchasesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'returned',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `returned_purchases_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateCancelledPurchasesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'cancelled',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cancelled_purchases_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generatePurchaseOrdersPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'orders',
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `purchase_orders_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateSupplierBalancesPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/suppliers/balances?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `supplier_balances_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateSupplierPaymentMovementPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/suppliers/payment-movement?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `supplier_payment_movement_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateInventoryCountPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/inventory/count?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inventory_count_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateInventoryByCategoryPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/inventory/by-category?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inventory_by_category_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateExpiryReportPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/inventory/expiry?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `expiry_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateDamagedProductsPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/inventory/damaged?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `damaged_products_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  // Cashbox PDF generation functions
+  const generateCashboxMovementPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/cashbox/movement?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cashbox_movement_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateCapitalReportPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/cashbox/capital?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `capital_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateZakatCalculationPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/cashbox/zakat?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `zakat_calculation_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateTaxDeclarationPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/cashbox/tax-declaration?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tax_declaration_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateTaxDeclarationWithReturnsPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/cashbox/tax-declaration-with-returns?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tax_declaration_with_returns_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  // Expenses PDF generation functions
+  const generateExpensesReportPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/expenses/report?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `expenses_report_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const generateExpensesByAccountPDF = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate
+      })
+      
+      const res = await fetch(`/api/reports/expenses/by-account?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) {
+        alert('تعذّر إنشاء التقرير')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `expenses_by_account_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('حدث خطأ أثناء تحميل التقرير')
+    }
+  }
+
+  const openCustomerInputPopup = (title: string, apiEndpoint: string) => {
+    setCurrentCustomerPopup({ title, apiEndpoint })
+    setShowCustomerInputPopup(true)
+  }
+
+  const openSupplierInputPopup = (title: string, apiEndpoint: string) => {
+    setCurrentSupplierPopup({ title, apiEndpoint })
+    setShowSupplierInputPopup(true)
+  }
+
+  const openInventoryInputPopup = (title: string, apiEndpoint: string) => {
+    setCurrentInventoryPopup({ title, apiEndpoint })
+    if (title.includes('تصنيف')) {
+      setShowInventoryCategoryInputPopup(true)
+    } else {
+      setShowProductMovementInputPopup(true)
+    }
+  }
+
+  const openExpensesInputPopup = (title: string, apiEndpoint: string) => {
+    setCurrentExpensesPopup({ title, apiEndpoint })
+    if (title.includes('حساب')) {
+      setShowExpensesAccountInputPopup(true)
+    } else {
+      setShowExpensesPaymentMethodPopup(true)
+    }
+  }
+
   const handleInquiryClick = (title: string, id: string) => {
     if (id === 'store-movement') {
       window.location.href = '/inquiries/store-movement'
+    } else if (id === 'sales-report') {
+      setShowSalesReportsPopup(true)
+    } else if (id === 'profits-report') {
+      setShowProfitsReportsPopup(true)
+    } else if (id === 'discounts-report') {
+      setShowDiscountsReportsPopup(true)
+    } else if (id === 'credit-invoices-report') {
+      generateCreditInvoicesPDF()
+    } else if (id === 'returned-sales-report') {
+      window.location.href = '/reports'
+    } else if (id === 'cancelled-sales-report') {
+      generateCancelledSalesPDF()
+    } else if (id === 'quotes-report') {
+      generateQuotesPDF()
+    } else if (id === 'tax-by-category') {
+      generateTaxByCategoryPDF()
+    } else if (id === 'tax-by-customer') {
+      generateTaxByCustomerPDF()
+    } else if (id === 'customer-balances') {
+      generateCustomerBalancesPDF()
+    } else if (id === 'customer-account') {
+      setShowCustomerAccountPopup(true)
+    } else if (id === 'customer-verification') {
+      openCustomerInputPopup('تقرير مصادقة حساب العميل', '/api/reports/customers/verification')
+    } else if (id === 'customer-opening-balance') {
+      openCustomerInputPopup('تقرير بحركة الرصيد الأفتتاحي و النقد للعميل', '/api/reports/customers/opening-balance')
+    } else if (id === 'customer-invoices') {
+      openCustomerInputPopup('تقرير بالفواتير لعميل', '/api/reports/customers/invoices')
+    } else if (id === 'customer-invoices-total') {
+      openCustomerInputPopup('تقرير بالفواتير لعميل - اجمالي', '/api/reports/customers/invoices-total')
+    } else if (id === 'customer-returned-invoices') {
+      openCustomerInputPopup('تقرير بالفواتير المرتجع لعميل', '/api/reports/customers/returned-invoices')
+    } else if (id === 'customer-receipts') {
+      openCustomerInputPopup('تقرير بسندات القبض لعميل', '/api/reports/customers/receipts')
+    } else if (id === 'customer-payments') {
+      openCustomerInputPopup('تقرير بسندات الصرف لعميل', '/api/reports/customers/payments')
+    } else if (id === 'customer-settlement') {
+      openCustomerInputPopup('تقرير بحركة التسديد لعميل', '/api/reports/customers/settlement')
+    } else if (id === 'customer-category-total') {
+      openCustomerInputPopup('تقرير اجمالي حسب الصنف لعميل', '/api/reports/customers/category-total')
+    } else if (id === 'customer-payment-movement') {
+      generatePaymentMovementPDF()
+    } else if (id === 'customer-payment-method') {
+      setShowPaymentMethodPopup(true)
+    } else if (id === 'purchases-report') {
+      setShowPurchasesReportsPopup(true)
+    } else if (id === 'purchase-invoices') {
+      window.location.href = '/purchases-invoices'
+    } else if (id === 'returned-purchases-report') {
+      generateReturnedPurchasesPDF()
+    } else if (id === 'cancelled-purchases-report') {
+      generateCancelledPurchasesPDF()
+    } else if (id === 'purchase-orders-report') {
+      generatePurchaseOrdersPDF()
+    } else if (id === 'supplier-balances') {
+      generateSupplierBalancesPDF()
+    } else if (id === 'supplier-account') {
+      setShowSupplierAccountPopup(true)
+    } else if (id === 'supplier-opening-balance') {
+      openSupplierInputPopup('تقرير بحركة الرصيد الأفتتاحي و النقد للمورد', '/api/reports/suppliers/opening-balance')
+    } else if (id === 'supplier-invoices') {
+      openSupplierInputPopup('تقرير بالفواتير لمورد', '/api/reports/suppliers/invoices')
+    } else if (id === 'supplier-invoices-total') {
+      openSupplierInputPopup('تقرير بالفواتير لمورد - اجمالي', '/api/reports/suppliers/invoices-total')
+    } else if (id === 'supplier-payments') {
+      openSupplierInputPopup('تقرير بسندات الصرف لمورد', '/api/reports/suppliers/payments')
+    } else if (id === 'supplier-receipts') {
+      openSupplierInputPopup('تقرير بسندات القبض لمورد', '/api/reports/suppliers/receipts')
+    } else if (id === 'supplier-settlement') {
+      openSupplierInputPopup('تقرير بحركة التسديد لمورد', '/api/reports/suppliers/settlement')
+    } else if (id === 'supplier-category-total') {
+      openSupplierInputPopup('تقرير اجمالي حسب الصنف لمورد', '/api/reports/suppliers/category-total')
+    } else if (id === 'supplier-payment-movement') {
+      generateSupplierPaymentMovementPDF()
+    } else if (id === 'supplier-payment-method') {
+      setShowSupplierPaymentMethodPopup(true)
+    } else if (id === 'inventory-count') {
+      generateInventoryCountPDF()
+    } else if (id === 'inventory-by-category') {
+      generateInventoryByCategoryPDF()
+    } else if (id === 'inventory-by-category-specific') {
+      openInventoryInputPopup('جرد مخزني لتصنيف', '/api/reports/inventory/by-category-specific')
+    } else if (id === 'expiry-report') {
+      generateExpiryReportPDF()
+    } else if (id === 'product-movement') {
+      openInventoryInputPopup('تقرير بحركة منتج', '/api/reports/inventory/product-movement')
+    } else if (id === 'damaged-products') {
+      generateDamagedProductsPDF()
+    } else if (id === 'cashbox-movement') {
+      generateCashboxMovementPDF()
+    } else if (id === 'capital-report') {
+      generateCapitalReportPDF()
+    } else if (id === 'zakat-calculation') {
+      generateZakatCalculationPDF()
+    } else if (id === 'tax-declaration') {
+      generateTaxDeclarationPDF()
+    } else if (id === 'tax-declaration-with-returns') {
+      generateTaxDeclarationWithReturnsPDF()
+    } else if (id === 'expenses-report') {
+      generateExpensesReportPDF()
+    } else if (id === 'expenses-by-account') {
+      generateExpensesByAccountPDF()
+    } else if (id === 'expenses-by-specific-account') {
+      openExpensesInputPopup('تقرير بالمصروفات لحساب', '/api/reports/expenses/by-specific-account')
+    } else if (id === 'expenses-by-payment-method') {
+      setShowExpensesPaymentMethodPopup(true)
+    } else if (id === 'sales-invoices') {
+      window.location.href = '/reports'
     } else {
       showNotification('success', `تم فتح: ${title}`)
       // TODO: Implement actual inquiry functionality for other items
     }
   }
+
 
   const inquirySections: InquirySection[] = [
     {
@@ -221,6 +998,136 @@ export default function InquiriesPage() {
           onClose={() => setNotification(null)}
         />
       )}
+
+      <SalesReportsPopup
+        isVisible={showSalesReportsPopup}
+        onClose={() => setShowSalesReportsPopup(false)}
+        onReportSelect={() => {}}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <ProfitsReportsPopup
+        isVisible={showProfitsReportsPopup}
+        onClose={() => setShowProfitsReportsPopup(false)}
+        onReportSelect={() => {}}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <DiscountsReportsPopup
+        isVisible={showDiscountsReportsPopup}
+        onClose={() => setShowDiscountsReportsPopup(false)}
+        onReportSelect={() => {}}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <CustomerAccountPopup
+        isVisible={showCustomerAccountPopup}
+        onClose={() => setShowCustomerAccountPopup(false)}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <CustomerInputPopup
+        isVisible={showCustomerInputPopup}
+        onClose={() => {
+          setShowCustomerInputPopup(false)
+          setCurrentCustomerPopup(null)
+        }}
+        title={currentCustomerPopup?.title || ''}
+        apiEndpoint={currentCustomerPopup?.apiEndpoint || ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <PaymentMethodPopup
+        isVisible={showPaymentMethodPopup}
+        onClose={() => setShowPaymentMethodPopup(false)}
+        title="تقرير بحركة السداد للعملاء حسب طريقة الدفع"
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <PurchasesReportsPopup
+        isVisible={showPurchasesReportsPopup}
+        onClose={() => setShowPurchasesReportsPopup(false)}
+        onReportSelect={() => {}}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <SupplierAccountPopup
+        isVisible={showSupplierAccountPopup}
+        onClose={() => setShowSupplierAccountPopup(false)}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <SupplierInputPopup
+        isVisible={showSupplierInputPopup}
+        onClose={() => {
+          setShowSupplierInputPopup(false)
+          setCurrentSupplierPopup(null)
+        }}
+        title={currentSupplierPopup?.title || ''}
+        apiEndpoint={currentSupplierPopup?.apiEndpoint || ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <SupplierPaymentMethodPopup
+        isVisible={showSupplierPaymentMethodPopup}
+        onClose={() => setShowSupplierPaymentMethodPopup(false)}
+        title="تقرير بحركة السداد للموردين حسب طريقة الدفع"
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <InventoryCategoryInputPopup
+        isVisible={showInventoryCategoryInputPopup}
+        onClose={() => {
+          setShowInventoryCategoryInputPopup(false)
+          setCurrentInventoryPopup(null)
+        }}
+        title={currentInventoryPopup?.title || ''}
+        apiEndpoint={currentInventoryPopup?.apiEndpoint || ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <ProductMovementInputPopup
+        isVisible={showProductMovementInputPopup}
+        onClose={() => {
+          setShowProductMovementInputPopup(false)
+          setCurrentInventoryPopup(null)
+        }}
+        title={currentInventoryPopup?.title || ''}
+        apiEndpoint={currentInventoryPopup?.apiEndpoint || ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <ExpensesAccountInputPopup
+        isVisible={showExpensesAccountInputPopup}
+        onClose={() => {
+          setShowExpensesAccountInputPopup(false)
+          setCurrentExpensesPopup(null)
+        }}
+        title={currentExpensesPopup?.title || ''}
+        apiEndpoint={currentExpensesPopup?.apiEndpoint || ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      <ExpensesPaymentMethodPopup
+        isVisible={showExpensesPaymentMethodPopup}
+        onClose={() => setShowExpensesPaymentMethodPopup(false)}
+        title="تقرير بالمصروفات حسب طريقة الدفع"
+        startDate={startDate}
+        endDate={endDate}
+      />
     </MainLayout>
   )
 }

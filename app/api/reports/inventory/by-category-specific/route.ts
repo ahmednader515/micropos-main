@@ -9,8 +9,16 @@ export const revalidate = 0
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const categoryName = searchParams.get('categoryName')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+
+    if (!categoryName) {
+      return new NextResponse(JSON.stringify({ error: 'اسم التصنيف مطلوب' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     // Set default date range if not provided
     const today = new Date()
@@ -19,34 +27,34 @@ export async function GET(request: NextRequest) {
 
     await prisma.$connect()
 
-    // Fetch all suppliers with their purchases and payments
-    const suppliers = await prisma.supplier.findMany({
-      include: {
-        purchases: {
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end
-            }
-          }
+    // Find category by name
+    const category = await prisma.category.findFirst({
+      where: {
+        name: {
+          contains: categoryName,
+          mode: 'insensitive'
         }
-      },
-      orderBy: {
-        name: 'asc'
       }
     })
 
-    // Fetch payments for each supplier separately
-    const supplierPayments = await prisma.payment.findMany({
+    if (!category) {
+      await prisma.$disconnect()
+      return new NextResponse(JSON.stringify({ error: 'التصنيف غير موجود' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Fetch products in this category
+    const products = await prisma.product.findMany({
       where: {
-        supplierId: { not: null },
-        createdAt: {
-          gte: start,
-          lte: end
-        }
+        categoryId: category.id
       },
       include: {
-        supplier: true
+        category: true
+      },
+      orderBy: {
+        name: 'asc'
       }
     })
 
@@ -81,55 +89,57 @@ export async function GET(request: NextRequest) {
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 20
-    const contentWidth = pageWidth - (2 * margin)
     
     // Header
     doc.setFontSize(24)
     doc.setFont('Amiri', 'bold')
-    doc.text('تقرير بالمتبقي للموردين', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
+    doc.text('جرد مخزني لتصنيف', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
     
     // Add line below header
     doc.setLineWidth(0.5)
     doc.line(margin, margin + 15, pageWidth - margin, margin + 15)
     
-    // Date range
+    // Category details
+    doc.setFontSize(14)
+    doc.setFont('Amiri', 'bold')
+    doc.text('بيانات التصنيف', margin, margin + 30, { isInputRtl: true })
+    
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
+    doc.text(`اسم التصنيف: ${category.name}`, margin, margin + 45, { isInputRtl: true })
+    
+    // Date range
     const dateRange = `من ${start.toLocaleDateString('ar-SA')} إلى ${end.toLocaleDateString('ar-SA')}`
-    doc.text(dateRange, pageWidth / 2, margin + 25, { align: 'center', isInputRtl: true })
+    doc.text(`الفترة: ${dateRange}`, margin, margin + 55, { isInputRtl: true })
     
     // Summary section
-    let currentY = margin + 35
+    let currentY = margin + 70
     
-    // Calculate totals
-    const totalPurchases = suppliers.reduce((sum, supplier) => 
-      sum + supplier.purchases.reduce((purchaseSum, purchase) => purchaseSum + Number(purchase.totalAmount), 0), 0
-    )
-    
-    const totalPayments = supplierPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const totalProducts = products.length
+    const totalStock = products.reduce((sum, product) => sum + product.stock, 0)
+    const totalValue = products.reduce((sum, product) => sum + (product.stock * product.price), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
-    doc.text('ملخص التقرير', margin, currentY, { isInputRtl: true })
+    doc.text('ملخص الجرد', margin, currentY, { isInputRtl: true })
     currentY += 10
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المشتريات: ${totalPurchases.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`عدد المنتجات: ${totalProducts}`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي الكمية: ${totalStock}`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`عدد الموردين: ${suppliers.length}`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي القيمة: ${totalValue.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
     currentY += 15
     
     // Table header
     doc.setFontSize(12)
     doc.setFont('Amiri', 'bold')
-    doc.text('اسم المورد', margin, currentY, { isInputRtl: true })
-    doc.text('الهاتف', margin + 60, currentY, { isInputRtl: true })
-    doc.text('إجمالي المشتريات', margin + 100, currentY, { isInputRtl: true })
-    doc.text('إجمالي المدفوعات', margin + 140, currentY, { isInputRtl: true })
-    doc.text('الرصيد', margin + 180, currentY, { isInputRtl: true })
+    doc.text('اسم المنتج', margin, currentY, { isInputRtl: true })
+    doc.text('الكمية', margin + 80, currentY, { isInputRtl: true })
+    doc.text('السعر', margin + 110, currentY, { isInputRtl: true })
+    doc.text('القيمة', margin + 140, currentY, { isInputRtl: true })
     
     // Add line below header
     doc.setLineWidth(0.3)
@@ -140,30 +150,28 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    suppliers.forEach((supplier) => {
+    products.forEach((product) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()
         currentY = margin
       }
       
-      const supplierPurchases = supplier.purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
-      const supplierPaymentsForSupplier = supplierPayments
-        .filter(payment => payment.supplierId === supplier.id)
-        .reduce((sum, payment) => sum + Number(payment.amount), 0)
+      const productValue = product.stock * product.price
       
-      const balance = supplierPurchases - supplierPaymentsForSupplier
+      // Color code based on stock level
+      if (product.stock === 0) {
+        doc.setTextColor(255, 0, 0) // Red for out of stock
+      } else if (product.stock < 10) {
+        doc.setTextColor(255, 165, 0) // Orange for low stock
+      } else {
+        doc.setTextColor(0, 0, 0) // Black for normal stock
+      }
       
-      // Color code the balance
-      const balanceColor = balance > 0 ? [255, 0, 0] : balance < 0 ? [0, 128, 0] : [0, 0, 0]
-      
-      doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2])
-      
-      doc.text(supplier.name, margin, currentY, { isInputRtl: true })
-      doc.text(supplier.phone || 'غير محدد', margin + 60, currentY, { isInputRtl: true })
-      doc.text(supplierPurchases.toFixed(2), margin + 100, currentY, { isInputRtl: true })
-      doc.text(supplierPaymentsForSupplier.toFixed(2), margin + 140, currentY, { isInputRtl: true })
-      doc.text(balance.toFixed(2), margin + 180, currentY, { isInputRtl: true })
+      doc.text(product.name, margin, currentY, { isInputRtl: true })
+      doc.text(product.stock.toString(), margin + 80, currentY, { isInputRtl: true })
+      doc.text(product.price.toFixed(2), margin + 110, currentY, { isInputRtl: true })
+      doc.text(productValue.toFixed(2), margin + 140, currentY, { isInputRtl: true })
       
       // Reset text color
       doc.setTextColor(0, 0, 0)
@@ -174,7 +182,7 @@ export async function GET(request: NextRequest) {
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
     
-    const filename = `supplier_balances_report_${new Date().toISOString().split('T')[0]}.pdf`
+    const filename = `inventory_category_${category.name}_${new Date().toISOString().split('T')[0]}.pdf`
     
     return new NextResponse(pdfBuffer, {
       status: 200,
@@ -184,7 +192,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error generating supplier balances report PDF:', error)
+    console.error('Error generating inventory category specific report PDF:', error)
     return new NextResponse(JSON.stringify({ 
       error: 'PDF generation failed', 
       details: error instanceof Error ? error.message : 'Unknown error' 

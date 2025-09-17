@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
@@ -6,10 +6,65 @@ import { join } from 'path'
 
 export const revalidate = 0
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+
+    // Set default date range if not provided
+    const today = new Date()
+    const start = startDate ? new Date(startDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const end = endDate ? new Date(endDate + 'T23:59:59.999Z') : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+
     await prisma.$connect()
-    const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } })
+
+    // Get all customers with their sales and payments
+    const customers = await prisma.customer.findMany({
+      include: {
+        sales: {
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end
+            }
+          },
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        },
+        payments: {
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end
+            }
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
+
+    // Get receipts separately (since there's no direct relation)
+    const receipts = await prisma.payment.findMany({
+      where: {
+        type: 'RECEIVE',
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      },
+      include: {
+        customer: true
+      }
+    })
+
     await prisma.$disconnect()
 
     // Create PDF using jsPDF
@@ -22,26 +77,22 @@ export async function GET() {
     // Set RTL text direction and Arabic font support
     doc.setR2L(true)
     
-    // Load custom Arabic font using jsPDF's proper font loading mechanism
-              try {
-                const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
+    // Load custom Arabic font
+    try {
+      const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
       const fontBuffer = readFileSync(fontPath)
       
-      // Add the font to jsPDF's virtual file system
       doc.addFileToVFS('Amiri-Regular.ttf', fontBuffer.toString('base64'))
       doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
       doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
       
       doc.setFont('Amiri', 'normal')
-      console.log('Custom font loaded successfully')
     } catch (fontError) {
       console.warn('Could not load custom font, using default:', fontError)
-      // Fallback to default font
       doc.setFont('helvetica', 'normal')
     }
-    doc.setFontSize(16)
 
-    // Set page dimensions
+    // Page dimensions
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 20
@@ -50,155 +101,127 @@ export async function GET() {
     // Header
     doc.setFontSize(24)
     doc.setFont('Amiri', 'bold')
-    doc.text('الأرصدة الافتتاحية و المبالغ النقدية للعملاء', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
+    doc.text('ذمم العملاء', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
     
     // Add line below header
     doc.setLineWidth(0.5)
     doc.line(margin, margin + 15, pageWidth - margin, margin + 15)
     
-    // Table setup - RTL layout with 4 columns
-    const tableTop = margin + 25
-    const rowHeight = 12
-    const col1Width = contentWidth * 0.2  // الرصيد (Balance) column (right side)
-    const col2Width = contentWidth * 0.2  // المبلغ عليه (Owed) column
-    const col3Width = contentWidth * 0.2  // له (Credit) column
-    const col4Width = contentWidth * 0.4  // العميل (Customer) column (left side)
-    
-    // Table headers - RTL layout
-    doc.setFontSize(14)
-    doc.setFont('Amiri', 'bold')
-    doc.setFillColor(245, 245, 245)
-    doc.rect(margin, tableTop, col1Width, rowHeight, 'F')  // الرصيد column (right)
-    doc.rect(margin + col1Width, tableTop, col2Width, rowHeight, 'F')  // المبلغ عليه column
-    doc.rect(margin + col1Width + col2Width, tableTop, col3Width, rowHeight, 'F')  // له column
-    doc.rect(margin + col1Width + col2Width + col3Width, tableTop, col4Width, rowHeight, 'F')  // العميل column (left)
-    
-    doc.text('الرصيد', margin + col1Width/2, tableTop + 8, { align: 'center', isInputRtl: true })
-    doc.text('المبلغ عليه', margin + col1Width + col2Width/2, tableTop + 8, { align: 'center', isInputRtl: true })
-    doc.text('له', margin + col1Width + col2Width + col3Width/2, tableTop + 8, { align: 'center', isInputRtl: true })
-    doc.text('العميل', margin + col1Width + col2Width + col3Width + col4Width - 5, tableTop + 8, { align: 'right', isInputRtl: true })
-    
-    // Table rows
+    // Date range
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    let currentY = tableTop + rowHeight
+    const dateRange = `من ${start.toLocaleDateString('ar-SA')} إلى ${end.toLocaleDateString('ar-SA')}`
+    doc.text(dateRange, pageWidth / 2, margin + 25, { align: 'center', isInputRtl: true })
     
-    customers.forEach((customer: any, index: number) => {
-      // Check if we need a new page
-      if (currentY + rowHeight > pageHeight - margin) {
-        doc.addPage()
-        currentY = margin + 10
+    // Summary section
+    let currentY = margin + 35
+    
+    // Calculate totals
+    let totalSales = 0
+    let totalReceipts = 0
+    let totalPayments = 0
+    let totalBalance = 0
+    
+    // Calculate receipts by customer
+    const receiptsByCustomer: { [customerId: string]: number } = {}
+    receipts.forEach(receipt => {
+      if (receipt.customerId) {
+        receiptsByCustomer[receipt.customerId] = (receiptsByCustomer[receipt.customerId] || 0) + Number(receipt.amount)
       }
-      
-              const balance = Number(customer.balance || 0)
-              const hasAmount = balance > 0 ? balance : 0
-              const oweAmount = balance < 0 ? Math.abs(balance) : 0
-              
-              let customerInfo = customer.name || ''
-              if (customer.customerNumber) {
-                customerInfo += ` - رقم: ${customer.customerNumber}`
-              }
-      
-      // Alternate row colors
-      if (index % 2 === 0) {
-        doc.setFillColor(249, 249, 249)
-        doc.rect(margin, currentY, col1Width, rowHeight, 'F')
-        doc.rect(margin + col1Width, currentY, col2Width, rowHeight, 'F')
-        doc.rect(margin + col1Width + col2Width, currentY, col3Width, rowHeight, 'F')
-        doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, rowHeight, 'F')
-      }
-      
-      // Row borders
-      doc.setDrawColor(221, 221, 221)
-      doc.setLineWidth(0.1)
-      doc.rect(margin, currentY, col1Width, rowHeight)
-      doc.rect(margin + col1Width, currentY, col2Width, rowHeight)
-      doc.rect(margin + col1Width + col2Width, currentY, col3Width, rowHeight)
-      doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, rowHeight)
-      
-      // الرصيد (Balance) - Color coded based on balance (right column)
-      if (balance > 0) {
-        doc.setTextColor(44, 90, 160) // Blue for positive balance
-      } else if (balance < 0) {
-        doc.setTextColor(211, 47, 47) // Red for negative balance
-      } else {
-        doc.setTextColor(102, 102, 102) // Gray for zero balance
-      }
-      doc.text(balance.toFixed(2), margin + col1Width/2, currentY + 8, { align: 'center', isInputRtl: true })
-      
-      // المبلغ عليه (Owed) - Red for amounts owed
-      doc.setTextColor(211, 47, 47)
-      doc.text(oweAmount.toFixed(2), margin + col1Width + col2Width/2, currentY + 8, { align: 'center', isInputRtl: true })
-      
-      // له (Credit) - Blue for amounts owed to customer
-      doc.setTextColor(44, 90, 160)
-      doc.text(hasAmount.toFixed(2), margin + col1Width + col2Width + col3Width/2, currentY + 8, { align: 'center', isInputRtl: true })
-      
-      // العميل (Customer) - Black for customer info (left column)
-      doc.setTextColor(0, 0, 0)
-      doc.text(customerInfo, margin + col1Width + col2Width + col3Width + col4Width - 5, currentY + 8, { align: 'right', isInputRtl: true })
-      
-      currentY += rowHeight
     })
     
-    // Add total row at the bottom
-    const totalCredit = customers.reduce((sum: number, customer: any) => {
-      const balance = Number(customer.balance || 0)
-      return sum + (balance > 0 ? balance : 0)
-    }, 0)
+    customers.forEach(customer => {
+      const customerSales = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
+      const customerReceipts = receiptsByCustomer[customer.id] || 0
+      const customerPayments = customer.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+      
+      totalSales += customerSales
+      totalReceipts += customerReceipts
+      totalPayments += customerPayments
+      totalBalance += (customerSales - customerReceipts - customerPayments)
+    })
     
-    const totalDebit = customers.reduce((sum: number, customer: any) => {
-      const balance = Number(customer.balance || 0)
-      return sum + (balance < 0 ? Math.abs(balance) : 0)
-    }, 0)
-    
-    const netBalance = totalCredit - totalDebit
-    
-    // Check if we need a new page for the total
-    if (currentY + rowHeight > pageHeight - margin) {
-      doc.addPage()
-      currentY = margin + 10
-    }
-    
-    // Total row styling
-    doc.setFillColor(240, 240, 240)
-    doc.rect(margin, currentY, col1Width, rowHeight, 'F')
-    doc.rect(margin + col1Width, currentY, col2Width, rowHeight, 'F')
-    doc.rect(margin + col1Width + col2Width, currentY, col3Width, rowHeight, 'F')
-    doc.rect(margin + col1Width + col2Width + col3Width, currentY, col4Width, rowHeight, 'F')
-    
+    doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
-    doc.setTextColor(0, 0, 0)
-    doc.text('الإجمالي', margin + col1Width + col2Width + col3Width + col4Width - 5, currentY + 8, { align: 'right', isInputRtl: true })
-    doc.setTextColor(44, 90, 160)
-    doc.text(totalCredit.toFixed(2), margin + col1Width + col2Width + col3Width/2, currentY + 8, { align: 'center', isInputRtl: true })
-    doc.setTextColor(211, 47, 47)
-    doc.text(totalDebit.toFixed(2), margin + col1Width + col2Width/2, currentY + 8, { align: 'center', isInputRtl: true })
+    doc.text('ملخص التقرير', margin, currentY, { isInputRtl: true })
+    currentY += 10
     
-    // Net balance with color coding
-    if (netBalance > 0) {
-      doc.setTextColor(44, 90, 160) // Blue for positive net balance
-    } else if (netBalance < 0) {
-      doc.setTextColor(211, 47, 47) // Red for negative net balance
-    } else {
-      doc.setTextColor(102, 102, 102) // Gray for zero net balance
-    }
-    doc.text(netBalance.toFixed(2), margin + col1Width/2, currentY + 8, { align: 'center', isInputRtl: true })
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'normal')
+    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`إجمالي الذمم: ${totalBalance.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`عدد العملاء: ${customers.length}`, margin, currentY, { isInputRtl: true })
+    currentY += 15
+    
+    // Table header
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'bold')
+    doc.text('اسم العميل', margin, currentY, { isInputRtl: true })
+    doc.text('الهاتف', margin + 50, currentY, { isInputRtl: true })
+    doc.text('المبيعات', margin + 80, currentY, { isInputRtl: true })
+    doc.text('المقبوضات', margin + 110, currentY, { isInputRtl: true })
+    doc.text('المدفوعات', margin + 140, currentY, { isInputRtl: true })
+    doc.text('الرصيد', margin + 170, currentY, { isInputRtl: true })
+    
+    // Add line below header
+    doc.setLineWidth(0.3)
+    doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2)
+    currentY += 8
+    
+    // Table rows
+    doc.setFontSize(10)
+    doc.setFont('Amiri', 'normal')
+    
+    customers.forEach((customer) => {
+      // Check if we need a new page
+      if (currentY > pageHeight - 30) {
+        doc.addPage()
+        currentY = margin
+      }
+      
+      const customerSales = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
+      const customerReceipts = receiptsByCustomer[customer.id] || 0
+      const customerPayments = customer.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+      const customerBalance = customerSales - customerReceipts - customerPayments
+      
+      doc.text(customer.name, margin, currentY, { isInputRtl: true })
+      doc.text(customer.phone || 'غير محدد', margin + 50, currentY, { isInputRtl: true })
+      doc.text(customerSales.toFixed(2), margin + 80, currentY, { isInputRtl: true })
+      doc.text(customerReceipts.toFixed(2), margin + 110, currentY, { isInputRtl: true })
+      doc.text(customerPayments.toFixed(2), margin + 140, currentY, { isInputRtl: true })
+      
+      // Color code the balance (positive in red, negative in green)
+      if (customerBalance > 0) {
+        doc.setTextColor(255, 0, 0) // Red for positive balance (debt)
+      } else if (customerBalance < 0) {
+        doc.setTextColor(0, 128, 0) // Green for negative balance (credit)
+      }
+      doc.text(customerBalance.toFixed(2), margin + 170, currentY, { isInputRtl: true })
+      doc.setTextColor(0, 0, 0) // Reset to black
+      
+      currentY += 6
+    })
     
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
     
-    console.log('PDF generated successfully with jsPDF, size:', pdfBuffer.length, 'bytes')
+    const filename = `customer_balances_report_${new Date().toISOString().split('T')[0]}.pdf`
     
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="customer_balances.pdf"',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     })
   } catch (error) {
-    console.error('Error generating PDF:', error)
+    console.error('Error generating customer balances report PDF:', error)
     return new NextResponse(JSON.stringify({ 
       error: 'PDF generation failed', 
       details: error instanceof Error ? error.message : 'Unknown error' 
@@ -210,5 +233,3 @@ export async function GET() {
     })
   }
 }
-
-

@@ -1,0 +1,290 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import jsPDF from 'jspdf'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+export const revalidate = 0
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const reportType = searchParams.get('type')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    const categoryId = searchParams.get('categoryId')
+    const supplierId = searchParams.get('supplierId')
+    const categoryName = searchParams.get('categoryName')
+    const supplierName = searchParams.get('supplierName')
+
+    // Set default date range if not provided
+    const today = new Date()
+    const start = startDate ? new Date(startDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const end = endDate ? new Date(endDate + 'T23:59:59.999Z') : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+
+    await prisma.$connect()
+
+    let purchasesQuery: any = {
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            }
+          }
+        },
+        supplier: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    }
+
+    // Apply filters based on report type
+    switch (reportType) {
+      case 'cash':
+        purchasesQuery.where.paymentMethod = 'CASH'
+        break
+      case 'credit':
+        purchasesQuery.where.paymentMethod = 'CARD'
+        break
+      case 'card':
+        purchasesQuery.where.paymentMethod = 'CARD'
+        break
+      case 'check':
+        purchasesQuery.where.paymentMethod = 'CHECK'
+        break
+      case 'category':
+        if (categoryId) {
+          purchasesQuery.where.items = {
+            some: {
+              product: {
+                categoryId: categoryId
+              }
+            }
+          }
+        }
+        break
+      case 'by-category':
+        if (categoryName) {
+          purchasesQuery.where.items = {
+            some: {
+              product: {
+                category: {
+                  name: {
+                    contains: categoryName,
+                    mode: 'insensitive'
+                  }
+                }
+              }
+            }
+          }
+        }
+        break
+      case 'supplier':
+        if (supplierId) {
+          purchasesQuery.where.supplierId = supplierId
+        } else if (supplierName) {
+          purchasesQuery.where.supplier = {
+            name: {
+              contains: supplierName,
+              mode: 'insensitive'
+            }
+          }
+        }
+        break
+      case 'returned':
+        purchasesQuery.where.status = 'RETURNED'
+        break
+      case 'cancelled':
+        purchasesQuery.where.status = 'CANCELLED'
+        break
+      case 'orders':
+        purchasesQuery.where.status = 'PENDING'
+        break
+    }
+
+    const purchases = await prisma.purchase.findMany(purchasesQuery)
+    await prisma.$disconnect()
+
+    // Create PDF using jsPDF
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    // Set RTL text direction and Arabic font support
+    doc.setR2L(true)
+    
+    // Load custom Arabic font
+    try {
+      const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
+      const fontBuffer = readFileSync(fontPath)
+      
+      doc.addFileToVFS('Amiri-Regular.ttf', fontBuffer.toString('base64'))
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
+      
+      doc.setFont('Amiri', 'normal')
+    } catch (fontError) {
+      console.warn('Could not load custom font, using default:', fontError)
+      doc.setFont('helvetica', 'normal')
+    }
+
+    // Page dimensions
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 20
+    const contentWidth = pageWidth - (2 * margin)
+    
+    // Header
+    doc.setFontSize(24)
+    doc.setFont('Amiri', 'bold')
+    const reportTitles: { [key: string]: string } = {
+      'period': 'تقرير بالمشتريات لفترة',
+      'by-product': 'تقرير بالمشتريات حسب الصنف',
+      'by-category': 'تقرير بالمشتريات حسب التصنيف',
+      'category': 'تقرير بالمشتريات لتصنيف',
+      'cash': 'تقرير بالمشتريات النقد',
+      'credit': 'تقرير بالمشتريات الاجل',
+      'card': 'تقرير بالمشتريات (بطاقة)',
+      'check': 'تقرير بالمشتريات (شيك)',
+      'all': 'تقرير بالمشتريات (الكل)',
+      'supplier': 'تقرير بالمشتريات حسب المورد',
+      'returned': 'تقرير بالفواتير المرتجع - مشتريات',
+      'cancelled': 'تقرير بفواتير المشتريات التي تم الغائها',
+      'orders': 'تقرير بطلبات الشراء'
+    }
+    
+    const title = reportTitles[reportType || 'all'] || 'تقرير بالمشتريات'
+    doc.text(title, pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
+    
+    // Add line below header
+    doc.setLineWidth(0.5)
+    doc.line(margin, margin + 15, pageWidth - margin, margin + 15)
+    
+    // Date range
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'normal')
+    const dateRange = `من ${start.toLocaleDateString('ar-SA')} إلى ${end.toLocaleDateString('ar-SA')}`
+    doc.text(dateRange, pageWidth / 2, margin + 25, { align: 'center', isInputRtl: true })
+    
+    // Add specific info for category/supplier reports
+    if (reportType === 'category' && categoryId) {
+      const category = await prisma.category.findUnique({ where: { id: categoryId } })
+      if (category) {
+        doc.text(`التصنيف: ${category.name}`, pageWidth / 2, margin + 35, { align: 'center', isInputRtl: true })
+      }
+    }
+    
+    if (reportType === 'by-category' && categoryName) {
+      doc.text(`التصنيف: ${categoryName}`, pageWidth / 2, margin + 35, { align: 'center', isInputRtl: true })
+    }
+    
+    if (reportType === 'supplier' && supplierId) {
+      const supplier = await prisma.supplier.findUnique({ where: { id: supplierId } })
+      if (supplier) {
+        doc.text(`المورد: ${supplier.name}`, pageWidth / 2, margin + 35, { align: 'center', isInputRtl: true })
+      }
+    }
+    
+    if (reportType === 'supplier' && supplierName) {
+      doc.text(`المورد: ${supplierName}`, pageWidth / 2, margin + 35, { align: 'center', isInputRtl: true })
+    }
+    
+    // Summary section
+    let currentY = margin + (reportType === 'category' || reportType === 'supplier' || reportType === 'by-category' ? 45 : 35)
+    
+    const totalAmount = purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
+    const totalQuantity = purchases.reduce((sum, purchase) => sum + purchase.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0)
+    
+    doc.setFontSize(14)
+    doc.setFont('Amiri', 'bold')
+    doc.text('ملخص التقرير', margin, currentY, { isInputRtl: true })
+    currentY += 10
+    
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'normal')
+    doc.text(`إجمالي المشتريات: ${totalAmount.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`إجمالي الكمية: ${totalQuantity}`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`عدد الفواتير: ${purchases.length}`, margin, currentY, { isInputRtl: true })
+    currentY += 15
+    
+    // Table header
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'bold')
+    doc.text('رقم الفاتورة', margin, currentY, { isInputRtl: true })
+    doc.text('التاريخ', margin + 40, currentY, { isInputRtl: true })
+    doc.text('المورد', margin + 80, currentY, { isInputRtl: true })
+    doc.text('المبلغ', margin + 120, currentY, { isInputRtl: true })
+    doc.text('طريقة الدفع', margin + 150, currentY, { isInputRtl: true })
+    
+    // Add line below header
+    doc.setLineWidth(0.3)
+    doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2)
+    currentY += 8
+    
+    // Table rows
+    doc.setFontSize(10)
+    doc.setFont('Amiri', 'normal')
+    
+    purchases.forEach((purchase, index) => {
+      // Check if we need a new page
+      if (currentY > pageHeight - 30) {
+        doc.addPage()
+        currentY = margin
+      }
+      
+      const paymentMethodNames: { [key: string]: string } = {
+        'CASH': 'نقد',
+        'CARD': 'بطاقة',
+        'CHECK': 'شيك',
+        'BANK_TRANSFER': 'تحويل بنكي',
+        'MOBILE_PAYMENT': 'دفع محمول'
+      }
+      
+      doc.text(purchase.invoiceNumber || `#${index + 1}`, margin, currentY, { isInputRtl: true })
+      doc.text(purchase.createdAt.toLocaleDateString('ar-SA'), margin + 40, currentY, { isInputRtl: true })
+      doc.text(purchase.supplier?.name || 'غير محدد', margin + 80, currentY, { isInputRtl: true })
+      doc.text(Number(purchase.totalAmount).toFixed(2), margin + 120, currentY, { isInputRtl: true })
+      doc.text(paymentMethodNames[purchase.paymentMethod] || purchase.paymentMethod, margin + 150, currentY, { isInputRtl: true })
+      
+      currentY += 6
+    })
+    
+    // Generate PDF buffer
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
+    
+    const filename = `purchases_report_${reportType || 'all'}_${new Date().toISOString().split('T')[0]}.pdf`
+    
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  } catch (error) {
+    console.error('Error generating purchases report PDF:', error)
+    return new NextResponse(JSON.stringify({ 
+      error: 'PDF generation failed', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+  }
+}
