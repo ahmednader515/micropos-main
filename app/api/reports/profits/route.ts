@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -184,7 +185,7 @@ export async function GET(request: NextRequest) {
     let totalCost = 0
     let totalProfit = 0
     
-    sales.forEach(sale => {
+    sales.forEach((sale: Sale & { customer: any; items: any[] }) => {
       const saleTotal = Number(sale.totalAmount)
       totalSales += saleTotal
       
@@ -231,7 +232,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    sales.forEach((sale, index) => {
+    sales.forEach((sale: Sale & { customer: any; items: any[] }, index: number) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()

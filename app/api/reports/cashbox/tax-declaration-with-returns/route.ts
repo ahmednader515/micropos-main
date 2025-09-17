@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -103,8 +104,8 @@ export async function GET(request: NextRequest) {
     // Summary section
     let currentY = margin + 40
     
-    const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0)
-    const totalReturns = returns.reduce((sum, returnSale) => sum + parseFloat(returnSale.totalAmount), 0)
+    const totalSales = sales.reduce((sum: number, sale: Sale & { items: any[] }) => sum + parseFloat(sale.totalAmount.toString()), 0)
+    const totalReturns = returns.reduce((sum: number, returnSale: Sale & { items: any[] }) => sum + parseFloat(returnSale.totalAmount.toString()), 0)
     const netSales = totalSales - totalReturns
     const vatRate = 0.15 // 15% VAT rate
     const vatAmount = netSales * vatRate

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { SaleItem, PurchaseItem } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -157,10 +158,10 @@ export async function GET(request: NextRequest) {
     // Summary section
     let currentY = margin + 100
     
-    const totalSales = sales.reduce((sum, sale) => sum + sale.quantity, 0)
-    const totalPurchases = purchases.reduce((sum, purchase) => sum + purchase.quantity, 0)
-    const salesValue = sales.reduce((sum, sale) => sum + (sale.quantity * sale.price), 0)
-    const purchasesValue = purchases.reduce((sum, purchase) => sum + (purchase.quantity * purchase.price), 0)
+    const totalSales = sales.reduce((sum: number, sale: SaleItem & { product: any; sale: any }) => sum + sale.quantity, 0)
+    const totalPurchases = purchases.reduce((sum: number, purchase: PurchaseItem & { product: any; purchase: any }) => sum + purchase.quantity, 0)
+    const salesValue = sales.reduce((sum: number, sale: SaleItem & { product: any; sale: any }) => sum + (sale.quantity * parseFloat(sale.price.toString())), 0)
+    const purchasesValue = purchases.reduce((sum: number, purchase: PurchaseItem & { product: any; purchase: any }) => sum + (purchase.quantity * parseFloat(purchase.price.toString())), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -203,19 +204,19 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      sales.forEach((sale) => {
+      sales.forEach((sale: SaleItem & { product: any; sale: any }) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
         }
         
-        const total = sale.quantity * sale.price
+        const total = sale.quantity * parseFloat(sale.price.toString())
         
         doc.text(sale.sale.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
         doc.text(sale.sale.customer?.name || 'عميل نقدي', margin + 50, currentY, { isInputRtl: true })
         doc.text(sale.quantity.toString(), margin + 100, currentY, { isInputRtl: true })
-        doc.text(sale.price.toFixed(2), margin + 130, currentY, { isInputRtl: true })
+        doc.text(parseFloat(sale.price.toString()).toFixed(2), margin + 130, currentY, { isInputRtl: true })
         doc.text(total.toFixed(2), margin + 160, currentY, { isInputRtl: true })
         
         currentY += 6
@@ -249,19 +250,19 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      purchases.forEach((purchase) => {
+      purchases.forEach((purchase: PurchaseItem & { product: any; purchase: any }) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
         }
         
-        const total = purchase.quantity * purchase.price
+        const total = purchase.quantity * parseFloat(purchase.price.toString())
         
         doc.text(purchase.purchase.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
         doc.text(purchase.purchase.supplier?.name || 'مورد نقدي', margin + 50, currentY, { isInputRtl: true })
         doc.text(purchase.quantity.toString(), margin + 100, currentY, { isInputRtl: true })
-        doc.text(purchase.price.toFixed(2), margin + 130, currentY, { isInputRtl: true })
+        doc.text(parseFloat(purchase.price.toString()).toFixed(2), margin + 130, currentY, { isInputRtl: true })
         doc.text(total.toFixed(2), margin + 160, currentY, { isInputRtl: true })
         
         currentY += 6

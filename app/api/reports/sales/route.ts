@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -208,8 +209,8 @@ export async function GET(request: NextRequest) {
     // Summary section
     let currentY = margin + (reportType === 'category' || reportType === 'customer' || reportType === 'by-category' ? 45 : 35)
     
-    const totalAmount = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const totalQuantity = sales.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0)
+    const totalAmount = sales.reduce((sum: number, sale: Sale & { customer: any; items: any[] }) => sum + Number(sale.totalAmount), 0)
+    const totalQuantity = sales.reduce((sum: number, sale: Sale & { customer: any; items: any[] }) => sum + sale.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -255,7 +256,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    sales.forEach((sale, index) => {
+    sales.forEach((sale: Sale & { customer: any; items: any[] }, index: number) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()

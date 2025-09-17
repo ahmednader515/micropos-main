@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Product } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -85,9 +86,9 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 35
     
     const totalProducts = products.length
-    const outOfStock = products.filter(product => product.stock === 0).length
-    const lowStock = products.filter(product => product.stock > 0 && product.stock <= 5).length
-    const totalValue = products.reduce((sum, product) => sum + (product.stock * product.price), 0)
+    const outOfStock = products.filter((product: Product & { category: any }) => product.stock === 0).length
+    const lowStock = products.filter((product: Product & { category: any }) => product.stock > 0 && product.stock <= 5).length
+    const totalValue = products.reduce((sum: number, product: Product & { category: any }) => sum + (product.stock * parseFloat(product.price.toString())), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -124,14 +125,14 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    products.forEach((product) => {
+    products.forEach((product: Product & { category: any }) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()
         currentY = margin
       }
       
-      const productValue = product.stock * product.price
+      const productValue = product.stock * parseFloat(product.price.toString())
       let status = 'قليل المخزون'
       let statusColor = [255, 165, 0] // Orange
       

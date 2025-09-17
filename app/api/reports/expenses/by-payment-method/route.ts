@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Expense } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     // Summary section
     let currentY = margin + 70
     
-    const totalExpenses = expenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0)
+    const totalExpenses = expenses.reduce((sum: number, expense: Expense) => sum + parseFloat(expense.amount.toString()), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    expenses.forEach((expense) => {
+    expenses.forEach((expense: Expense) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()
@@ -137,9 +138,9 @@ export async function GET(request: NextRequest) {
       }
       
       doc.text(expense.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
-      doc.text(expense.description, margin + 50, currentY, { isInputRtl: true })
-      doc.text(parseFloat(expense.amount).toFixed(2), margin + 120, currentY, { isInputRtl: true })
-      doc.text(expense.account || 'غير محدد', margin + 150, currentY, { isInputRtl: true })
+      doc.text(expense.description || '', margin + 50, currentY, { isInputRtl: true })
+      doc.text(parseFloat(expense.amount.toString()).toFixed(2), margin + 120, currentY, { isInputRtl: true })
+      doc.text(expense.category || 'غير محدد', margin + 150, currentY, { isInputRtl: true })
       
       currentY += 6
     })

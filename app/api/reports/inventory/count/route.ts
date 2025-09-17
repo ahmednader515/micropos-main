@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Product } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -81,8 +82,8 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 35
     
     const totalProducts = products.length
-    const totalStock = products.reduce((sum, product) => sum + product.stock, 0)
-    const totalValue = products.reduce((sum, product) => sum + (product.stock * product.price), 0)
+    const totalStock = products.reduce((sum: number, product: Product & { category: any }) => sum + product.stock, 0)
+    const totalValue = products.reduce((sum: number, product: Product & { category: any }) => sum + (product.stock * parseFloat(product.price.toString())), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -116,14 +117,14 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    products.forEach((product) => {
+    products.forEach((product: Product & { category: any }) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()
         currentY = margin
       }
       
-      const productValue = product.stock * product.price
+      const productValue = product.stock * parseFloat(product.price.toString())
       
       // Color code based on stock level
       if (product.stock === 0) {

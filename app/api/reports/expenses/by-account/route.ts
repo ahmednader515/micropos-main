@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Expense } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -81,19 +82,20 @@ export async function GET(request: NextRequest) {
     doc.text(dateRange, pageWidth / 2, margin + 25, { align: 'center', isInputRtl: true })
     
     // Group expenses by account
-    const expensesByAccount = expenses.reduce((acc, expense) => {
-      const account = expense.account || 'غير محدد'
+    const expensesByAccount = expenses.reduce((acc: { [key: string]: Expense[] }, expense: Expense) => {
+      const account = expense.category || 'غير محدد'
       if (!acc[account]) {
         acc[account] = []
       }
       acc[account].push(expense)
       return acc
-    }, {} as Record<string, typeof expenses>)
+    }, {} as { [key: string]: Expense[] })
 
     let currentY = margin + 40
 
     // Process each account
     Object.entries(expensesByAccount).forEach(([account, accountExpenses]) => {
+      const expenses = accountExpenses as Expense[]
       // Check if we need a new page
       if (currentY > pageHeight - 50) {
         doc.addPage()
@@ -107,11 +109,11 @@ export async function GET(request: NextRequest) {
       currentY += 10
 
       // Account summary
-      const accountTotal = accountExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0)
+      const accountTotal = expenses.reduce((sum: number, expense: Expense) => sum + parseFloat(expense.amount.toString()), 0)
 
       doc.setFontSize(12)
       doc.setFont('Amiri', 'normal')
-      doc.text(`عدد المصروفات: ${accountExpenses.length}`, margin, currentY, { isInputRtl: true })
+      doc.text(`عدد المصروفات: ${expenses.length}`, margin, currentY, { isInputRtl: true })
       currentY += 6
       doc.text(`إجمالي المبلغ: ${accountTotal.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
       currentY += 10
@@ -133,7 +135,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      accountExpenses.forEach((expense) => {
+      expenses.forEach((expense: Expense) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
@@ -141,8 +143,8 @@ export async function GET(request: NextRequest) {
         }
         
         doc.text(expense.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
-        doc.text(expense.description, margin + 50, currentY, { isInputRtl: true })
-        doc.text(parseFloat(expense.amount).toFixed(2), margin + 120, currentY, { isInputRtl: true })
+        doc.text(expense.description || '', margin + 50, currentY, { isInputRtl: true })
+        doc.text(parseFloat(expense.amount.toString()).toFixed(2), margin + 120, currentY, { isInputRtl: true })
         doc.text(expense.paymentMethod, margin + 150, currentY, { isInputRtl: true })
         
         currentY += 6

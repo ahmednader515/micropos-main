@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Product } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -85,8 +86,8 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 35
     
     const totalProducts = products.length
-    const expiredProducts = products.filter(product => product.expiryDate && new Date(product.expiryDate) < new Date()).length
-    const expiringSoon = products.filter(product => {
+    const expiredProducts = products.filter((product: Product & { category: any }) => product.expiryDate && new Date(product.expiryDate) < new Date()).length
+    const expiringSoon = products.filter((product: Product & { category: any }) => {
       if (!product.expiryDate) return false
       const expiryDate = new Date(product.expiryDate)
       const thirtyDaysFromNow = new Date()
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    products.forEach((product) => {
+    products.forEach((product: Product & { category: any }) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()

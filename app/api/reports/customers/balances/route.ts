@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale, Payment, Customer } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -124,16 +125,16 @@ export async function GET(request: NextRequest) {
     
     // Calculate receipts by customer
     const receiptsByCustomer: { [customerId: string]: number } = {}
-    receipts.forEach(receipt => {
+    receipts.forEach((receipt: Payment & { customer: Customer | null }) => {
       if (receipt.customerId) {
         receiptsByCustomer[receipt.customerId] = (receiptsByCustomer[receipt.customerId] || 0) + Number(receipt.amount)
       }
     })
     
-    customers.forEach(customer => {
-      const customerSales = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
+    customers.forEach((customer: Customer & { sales: (Sale & { items: any[] })[]; payments: Payment[] }) => {
+      const customerSales = customer.sales.reduce((sum: number, sale: Sale & { items: any[] }) => sum + Number(sale.totalAmount), 0)
       const customerReceipts = receiptsByCustomer[customer.id] || 0
-      const customerPayments = customer.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+      const customerPayments = customer.payments.reduce((sum: number, payment: Payment) => sum + Number(payment.amount), 0)
       
       totalSales += customerSales
       totalReceipts += customerReceipts
@@ -178,7 +179,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    customers.forEach((customer) => {
+    customers.forEach((customer: Customer & { sales: (Sale & { items: any[] })[]; payments: Payment[] }) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()

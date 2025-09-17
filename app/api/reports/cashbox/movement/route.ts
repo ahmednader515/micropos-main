@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale, Purchase } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -110,8 +111,8 @@ export async function GET(request: NextRequest) {
     // Summary section
     let currentY = margin + 40
     
-    const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0)
-    const totalPurchases = purchases.reduce((sum, purchase) => sum + parseFloat(purchase.totalAmount), 0)
+    const totalSales = sales.reduce((sum: number, sale: Sale & { customer: any; items: any[] }) => sum + parseFloat(sale.totalAmount.toString()), 0)
+    const totalPurchases = purchases.reduce((sum: number, purchase: Purchase & { supplier: any; items: any[] }) => sum + parseFloat(purchase.totalAmount.toString()), 0)
     const netCashFlow = totalSales - totalPurchases
     
     doc.setFontSize(14)
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      sales.forEach((sale) => {
+      sales.forEach((sale: Sale & { customer: any; items: any[] }) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
         doc.text(sale.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
         doc.text(sale.invoiceNumber, margin + 40, currentY, { isInputRtl: true })
         doc.text(sale.customer?.name || 'عميل نقدي', margin + 80, currentY, { isInputRtl: true })
-        doc.text(parseFloat(sale.totalAmount).toFixed(2), margin + 120, currentY, { isInputRtl: true })
+        doc.text(parseFloat(sale.totalAmount.toString()).toFixed(2), margin + 120, currentY, { isInputRtl: true })
         doc.text(sale.paymentMethod, margin + 150, currentY, { isInputRtl: true })
         
         currentY += 6
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      purchases.forEach((purchase) => {
+      purchases.forEach((purchase: Purchase & { supplier: any; items: any[] }) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
         doc.text(purchase.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
         doc.text(purchase.invoiceNumber, margin + 40, currentY, { isInputRtl: true })
         doc.text(purchase.supplier?.name || 'مورد نقدي', margin + 80, currentY, { isInputRtl: true })
-        doc.text(parseFloat(purchase.totalAmount).toFixed(2), margin + 120, currentY, { isInputRtl: true })
+        doc.text(parseFloat(purchase.totalAmount.toString()).toFixed(2), margin + 120, currentY, { isInputRtl: true })
         doc.text(purchase.paymentMethod, margin + 150, currentY, { isInputRtl: true })
         
         currentY += 6

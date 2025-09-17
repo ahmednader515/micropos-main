@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Supplier, Purchase, Payment } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -102,11 +103,11 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 35
     
     // Calculate totals
-    const totalPurchases = suppliers.reduce((sum, supplier) => 
-      sum + supplier.purchases.reduce((purchaseSum, purchase) => purchaseSum + Number(purchase.totalAmount), 0), 0
+    const totalPurchases = suppliers.reduce((sum: number, supplier: Supplier & { purchases: (Purchase & { items: any[] })[]; payments: Payment[] }) =>
+      sum + supplier.purchases.reduce((purchaseSum: number, purchase: Purchase & { items: any[] }) => purchaseSum + Number(purchase.totalAmount), 0), 0
     )
     
-    const totalPayments = supplierPayments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const totalPayments = supplierPayments.reduce((sum: number, payment: Payment) => sum + Number(payment.amount), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -140,17 +141,17 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(10)
     doc.setFont('Amiri', 'normal')
     
-    suppliers.forEach((supplier) => {
+    suppliers.forEach((supplier: Supplier & { purchases: (Purchase & { items: any[] })[]; payments: Payment[] }) => {
       // Check if we need a new page
       if (currentY > pageHeight - 30) {
         doc.addPage()
         currentY = margin
       }
       
-      const supplierPurchases = supplier.purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount), 0)
+      const supplierPurchases = supplier.purchases.reduce((sum: number, purchase: Purchase & { items: any[] }) => sum + Number(purchase.totalAmount), 0)
       const supplierPaymentsForSupplier = supplierPayments
-        .filter(payment => payment.supplierId === supplier.id)
-        .reduce((sum, payment) => sum + Number(payment.amount), 0)
+        .filter((payment: Payment) => payment.supplierId === supplier.id)
+        .reduce((sum: number, payment: Payment) => sum + Number(payment.amount), 0)
       
       const balance = supplierPurchases - supplierPaymentsForSupplier
       

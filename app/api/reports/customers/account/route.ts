@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Sale, Payment } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -151,9 +152,9 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 55
     
     // Calculate totals
-    const totalSales = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const totalReceipts = receipts.reduce((sum, receipt) => sum + Number(receipt.amount), 0)
-    const totalPayments = customer.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+    const totalSales = customer.sales.reduce((sum: number, sale: Sale & { items: any[] }) => sum + Number(sale.totalAmount), 0)
+    const totalReceipts = receipts.reduce((sum: number, receipt: Payment) => sum + Number(receipt.amount), 0)
+    const totalPayments = customer.payments.reduce((sum: number, payment: Payment) => sum + Number(payment.amount), 0)
     const currentBalance = totalSales - totalReceipts - totalPayments
     
     doc.setFontSize(14)
@@ -204,7 +205,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      customer.sales.forEach((sale) => {
+      customer.sales.forEach((sale: Sale & { items: any[] }) => {
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
@@ -252,7 +253,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      receipts.forEach((receipt) => {
+      receipts.forEach((receipt: Payment) => {
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
@@ -293,7 +294,7 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      customer.payments.forEach((payment) => {
+      customer.payments.forEach((payment: Payment) => {
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin

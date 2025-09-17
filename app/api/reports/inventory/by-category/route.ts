@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Product } from '@prisma/client'
 
 export const revalidate = 0
 
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
     doc.text(dateRange, pageWidth / 2, margin + 25, { align: 'center', isInputRtl: true })
     
     // Group products by category
-    const productsByCategory = products.reduce((acc, product) => {
+    const productsByCategory = products.reduce((acc: { [key: string]: (Product & { category: any })[] }, product: Product & { category: any }) => {
       const categoryName = product.category?.name || 'غير محدد'
       if (!acc[categoryName]) {
         acc[categoryName] = []
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Process each category
     Object.entries(productsByCategory).forEach(([categoryName, categoryProducts]) => {
+      const products = categoryProducts as (Product & { category: any })[]
       // Check if we need a new page
       if (currentY > pageHeight - 50) {
         doc.addPage()
@@ -104,12 +106,12 @@ export async function GET(request: NextRequest) {
       currentY += 10
 
       // Category summary
-      const categoryTotalStock = categoryProducts.reduce((sum, product) => sum + product.stock, 0)
-      const categoryTotalValue = categoryProducts.reduce((sum, product) => sum + (product.stock * product.price), 0)
+      const categoryTotalStock = products.reduce((sum: number, product: Product & { category: any }) => sum + product.stock, 0)
+      const categoryTotalValue = products.reduce((sum: number, product: Product & { category: any }) => sum + (product.stock * parseFloat(product.price.toString())), 0)
 
       doc.setFontSize(12)
       doc.setFont('Amiri', 'normal')
-      doc.text(`عدد المنتجات: ${categoryProducts.length}`, margin, currentY, { isInputRtl: true })
+      doc.text(`عدد المنتجات: ${products.length}`, margin, currentY, { isInputRtl: true })
       currentY += 6
       doc.text(`إجمالي الكمية: ${categoryTotalStock}`, margin, currentY, { isInputRtl: true })
       currentY += 6
@@ -133,14 +135,14 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
-      categoryProducts.forEach((product) => {
+      products.forEach((product: Product & { category: any }) => {
         // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
         }
         
-        const productValue = product.stock * product.price
+        const productValue = product.stock * parseFloat(product.price.toString())
         
         // Color code based on stock level
         if (product.stock === 0) {
