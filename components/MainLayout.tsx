@@ -13,11 +13,12 @@ interface MainLayoutProps {
   navbarTitle?: string
   onBack?: () => void
   menuOptions?: MenuOption[]
+  customRightButton?: React.ReactNode
   hideNavbar?: boolean
   removeTopPadding?: boolean
 }
 
-export default function MainLayout({ children, navbarTitle, onBack, menuOptions, hideNavbar, removeTopPadding }: MainLayoutProps) {
+export default function MainLayout({ children, navbarTitle, onBack, menuOptions, customRightButton, hideNavbar, removeTopPadding }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -59,9 +60,11 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
                 <div className="flex-1 flex justify-center">
                   <h1 className="text-lg font-semibold text-gray-900 truncate">{navbarTitle}</h1>
                 </div>
-                {/* Menu button */}
+                {/* Right button */}
                 <div className="relative" style={{ minWidth: 40 }}>
-                  {menuOptions && menuOptions.length > 0 ? (
+                  {customRightButton ? (
+                    customRightButton
+                  ) : menuOptions && menuOptions.length > 0 ? (
                     <>
                       <button
                         onClick={() => setMenuOpen((v) => !v)}

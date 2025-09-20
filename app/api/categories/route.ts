@@ -58,3 +58,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'فشل إنشاء التصنيف' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    await prisma.$connect()
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'معرف التصنيف مطلوب' }, { status: 400 })
+    }
+
+    // Check if category exists
+    const category = await prisma.category.findUnique({ where: { id } })
+    if (!category) {
+      return NextResponse.json({ error: 'التصنيف غير موجود' }, { status: 404 })
+    }
+
+    // Delete the category
+    await prisma.category.delete({ where: { id } })
+
+    await prisma.$disconnect()
+    return NextResponse.json({ message: 'تم حذف التصنيف' })
+  } catch (error) {
+    console.error('Failed to delete category', error)
+    return NextResponse.json({ error: 'فشل حذف التصنيف' }, { status: 500 })
+  }
+}

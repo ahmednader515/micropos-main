@@ -16,6 +16,11 @@ interface Product {
   barcode: string | null
   sku: string | null
   expiryDate: string | null
+  category?: {
+    id: string
+    name: string
+  } | null
+  color?: string | null
 }
 
 interface Supplier {
@@ -48,6 +53,8 @@ export default function PurchasesPage() {
   const [screenNumber, setScreenNumber] = useState(1)
   const [showScreenModal, setShowScreenModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
+  const [showCategoryView, setShowCategoryView] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [showProductDetails, setShowProductDetails] = useState(false)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<PurchaseItem | null>(null)
@@ -172,6 +179,38 @@ export default function PurchasesPage() {
       const data = await response.json()
       setSuppliers(data.suppliers || [])
     }
+  }
+
+  // Get unique categories from products
+  const getCategories = () => {
+    const categoryMap = new Map()
+    products.forEach(product => {
+      if (product.category) {
+        categoryMap.set(product.category.id, product.category)
+      }
+    })
+    return Array.from(categoryMap.values())
+  }
+
+  // Filter products by category and search
+  const getFilteredProducts = () => {
+    let filtered = products
+
+    // Filter by category if selected
+    if (selectedCategory) {
+      filtered = filtered.filter(product => product.category?.id === selectedCategory)
+    }
+
+    // Filter by search term
+    if (modalProductSearch.trim()) {
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(modalProductSearch.toLowerCase()) ||
+        (product.barcode && product.barcode.includes(modalProductSearch)) ||
+        (product.sku && product.sku.includes(modalProductSearch))
+      )
+    }
+
+    return filtered
   }
 
   const handleBarcodeDetected = (barcode: string) => {
@@ -348,6 +387,17 @@ export default function PurchasesPage() {
     try {
       const currentScreenItems = purchaseItems[screenNumber] || []
       
+      // Check if this is a purchase request (fake purchase)
+      if (checkoutForm.paymentMethod === 'طلب شراء') {
+        // For purchase request, just show the success modal without saving to database
+        setInvoiceNumber('طلب شراء')
+        setShowCheckoutModal(false)
+        setShowSuccessModal(true)
+        // Don't clear the purchase items for purchase request
+        showNotification('success', 'تم إنشاء طلب الشراء بنجاح')
+        return
+      }
+      
       // Validate that we have items
       if (currentScreenItems.length === 0) {
         showNotification('error', 'يرجى إضافة منتجات إلى القائمة أولاً')
@@ -472,8 +522,61 @@ export default function PurchasesPage() {
         return
       }
 
+      // Handle purchase request mode
+      if (invoiceNumber === 'طلب شراء') {
+        // For purchase request, create a temporary PDF with current purchase items
+        const currentScreenItems = purchaseItems[screenNumber] || []
+        
+        // Prepare temporary purchase data for PDF generation
+        const tempPurchaseData = {
+          invoiceNumber: 'طلب شراء',
+          totalAmount: checkoutForm.total,
+          paidAmount: checkoutForm.paid,
+          discount: checkoutForm.discount,
+          tax: checkoutForm.tax,
+          paymentMethod: checkoutForm.paymentMethod,
+          notes: checkoutForm.note,
+          items: currentScreenItems.map(item => ({
+            productName: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            discount: item.discount || 0,
+            total: item.price * item.quantity - (item.discount || 0)
+          })),
+          isPurchaseRequest: true
+        }
+
+        // Generate PDF for purchase request
+        const pdfResponse = await fetch('/api/pdf/purchase', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(tempPurchaseData)
+        })
+
+        if (!pdfResponse.ok) {
+          throw new Error('فشل في توليد طلب الشراء')
+        }
+
+        // Create blob and download
+        const blob = await pdfResponse.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `purchase_request_${new Date().toISOString().split('T')[0]}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+
+        showNotification('success', 'تم تحميل طلب الشراء بنجاح')
+        return
+      }
+
       console.log('Searching for invoice:', invoiceNumber)
 
+      // Regular purchase handling
       // First, we need to get the purchase ID from the invoice number
       const response = await fetch(`/api/purchases?invoiceNumber=${invoiceNumber}`)
       console.log('API response status:', response.status)
@@ -545,11 +648,6 @@ export default function PurchasesPage() {
     (product.sku && product.sku.toLowerCase().includes(productSearchValue.toLowerCase()))
   )
 
-  const filteredModalProducts = products.filter(product =>
-    product.name.toLowerCase().includes(modalProductSearch.toLowerCase()) ||
-    (product.barcode && product.barcode.includes(modalProductSearch)) ||
-    (product.sku && product.sku.toLowerCase().includes(modalProductSearch.toLowerCase()))
-  )
 
   const handleProductSelect = (product: Product) => {
     addProductToPurchase(product)
@@ -1017,67 +1115,122 @@ export default function PurchasesPage() {
         {/* Product Selection Modal */}
         {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50" dir="rtl">
-            <div className="bg-white w-full max-h-[70vh] rounded-t-lg overflow-hidden">
-              <div className="flex items-center justify-between p-3 sm:p-4 border-b">
-                <h3 className="text-base sm:text-lg font-semibold">اختيار المنتجات</h3>
+            <div className="bg-white w-full h-[85vh] rounded-t-lg overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+                <h3 className="text-lg font-semibold text-gray-900">اختيار المنتجات</h3>
                 <button
                   onClick={() => {
                     setShowProductModal(false)
                     setModalProductSearch('')
+                    setSelectedCategory(null)
+                    setShowCategoryView(false)
                   }}
                   className="text-gray-500 hover:text-gray-700 p-1"
                 >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              {/* Search Bar in Modal */}
-              <div className="p-3 sm:p-4 border-b">
+              {/* Search Bar */}
+              <div className="p-4 border-b">
                 <input
                   type="text"
                   value={modalProductSearch}
                   onChange={(e) => setModalProductSearch(e.target.value)}
                   placeholder="ابحث عن منتج..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
                 />
               </div>
-              
-              <div className="p-2 sm:p-4 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-                  {filteredModalProducts.map(product => (
-                    <div
-                      key={product.id}
-                      onClick={() => {
-                        addProductToPurchase(product)
-                        setShowProductModal(false)
-                        setModalProductSearch('')
-                      }}
-                      className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Products Grid */}
+                <div className="flex-1 p-4 overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-3">
+                    {getFilteredProducts().map(product => (
+                      <button
+                        key={product.id}
+                        onClick={() => {
+                          addProductToPurchase(product)
+                          setShowProductModal(false)
+                          setModalProductSearch('')
+                          setSelectedCategory(null)
+                          setShowCategoryView(false)
+                        }}
+                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                          product.color 
+                            ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
+                            : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                        }`}
+                        style={{
+                          backgroundColor: product.color ? `${product.color}15` : undefined,
+                          borderColor: product.color ? `${product.color}40` : undefined
+                        }}
+                      >
+                        <div className="font-medium text-gray-900 text-xs leading-tight">
+                          {product.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {formatCurrency(product.costPrice || product.price)}
+                        </div>
+                      </button>
+                    ))}
+                    {getFilteredProducts().length === 0 && modalProductSearch.trim() !== '' && (
+                      <div className="col-span-3 text-center text-gray-500 py-8">
+                        لا توجد منتجات تطابق البحث
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Category Toggle and Categories Section */}
+                <div className="border-t bg-gray-50">
+                  {/* Category Toggle Button */}
+                  <div className="p-4">
+                    <button
+                      onClick={() => setShowCategoryView(!showCategoryView)}
+                      className="w-full flex items-center justify-center p-3 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
-                      <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                        السعر: {formatCurrency(product.costPrice || product.price)}
+                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">
+                        {showCategoryView ? 'إخفاء الفئات' : 'عرض الفئات'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Categories Grid */}
+                  {showCategoryView && (
+                    <div className="p-4 pt-0">
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => setSelectedCategory(null)}
+                          className={`p-3 rounded-lg text-center transition-all duration-200 ${
+                            selectedCategory === null
+                              ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
+                              : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="text-sm font-medium">الكل</div>
+                        </button>
+                        {getCategories().map(category => (
+                          <button
+                            key={category.id}
+                            onClick={() => setSelectedCategory(category.id)}
+                            className={`p-3 rounded-lg text-center transition-all duration-200 ${
+                              selectedCategory === category.id
+                                ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
+                                : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+                            }`}
+                          >
+                            <div className="text-sm font-medium truncate">{category.name}</div>
+                          </button>
+                        ))}
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        المخزون: {product.stock}
-                      </div>
-                      {product.barcode && (
-                        <div className="text-xs text-gray-400 mt-1 truncate">
-                          الباركود: {product.barcode}
-                        </div>
-                      )}
-                      {product.sku && (
-                        <div className="text-xs text-gray-400 mt-1 truncate">
-                          SKU: {product.sku}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {filteredModalProducts.length === 0 && modalProductSearch.trim() !== '' && (
-                    <div className="col-span-full text-center text-gray-500 py-8">
-                      لا توجد منتجات تطابق البحث
                     </div>
                   )}
                 </div>
@@ -1312,8 +1465,8 @@ export default function PurchasesPage() {
                 {/* Payment Method */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
-                  <div className="flex gap-4 flex-wrap">
-                    <label className="flex items-center">
+                  <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -1324,7 +1477,7 @@ export default function PurchasesPage() {
                       />
                       <span className="text-sm text-gray-700">نقدا</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -1335,7 +1488,7 @@ export default function PurchasesPage() {
                       />
                       <span className="text-sm text-gray-700">اجل</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -1346,7 +1499,7 @@ export default function PurchasesPage() {
                       />
                       <span className="text-sm text-gray-700">بطاقة</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -1357,35 +1510,54 @@ export default function PurchasesPage() {
                       />
                       <span className="text-sm text-gray-700">شيك</span>
                     </label>
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="طلب شراء"
+                        checked={checkoutForm.paymentMethod === 'طلب شراء'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">طلب شراء</span>
+                    </label>
                   </div>
                 </div>
 
-                {/* Total and Paid */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
-                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                      {formatCurrency(checkoutForm.total)}
-                    </div>
+                {/* Total Amount */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.total)}
                   </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">المدفوع</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={checkoutForm.paid || ''}
-                      placeholder="0.00"
-                      onChange={(e) => {
-                        const paid = parseFloat(e.target.value) || 0
-                        setCheckoutForm(prev => ({
-                          ...prev,
-                          paid: paid,
-                          remaining: prev.total - paid - prev.discount + prev.tax
-                        }))
-                      }}
-                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
+                </div>
+
+                {/* Paid Amount */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">المدفوع</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={checkoutForm.paid || ''}
+                    placeholder="0.00"
+                    onChange={(e) => {
+                      const paid = parseFloat(e.target.value) || 0
+                      setCheckoutForm(prev => ({
+                        ...prev,
+                        paid: paid,
+                        remaining: prev.total - paid - prev.discount + prev.tax
+                      }))
+                    }}
+                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* Remaining Amount */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.remaining)}
                   </div>
                 </div>
 
@@ -1431,14 +1603,6 @@ export default function PurchasesPage() {
                   </div>
                 </div>
 
-                {/* Remaining Amount */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
-                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                    {formatCurrency(checkoutForm.remaining)}
-                  </div>
-                </div>
-
                 {/* Supplier Account */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">حفظ الفاتورة لحساب مورد</label>
@@ -1477,13 +1641,6 @@ export default function PurchasesPage() {
                   )}
                 </div>
 
-                {/* Previous Balance */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الرصيد السابق</label>
-                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                    {formatCurrency(checkoutForm.previousBalance)}
-                  </div>
-                </div>
 
                 {/* Note */}
                 <div>
@@ -1527,23 +1684,45 @@ export default function PurchasesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">تم حفظ الفاتورة</h3>
-                <p className="text-sm text-gray-600 mb-4">رقم الفاتورة: {invoiceNumber}</p>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handlePrintPDF}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    طباعة
-                  </button>
-                  <button
-                    onClick={handleFinish}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
-                  >
-                    انهاء
-                  </button>
-                </div>
+                {invoiceNumber === 'طلب شراء' ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">طلب شراء</h3>
+                    <p className="text-sm text-gray-600 mb-4">تم إنشاء طلب الشراء بنجاح</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handlePrintPDF}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        طباعة
+                      </button>
+                      <button
+                        onClick={handleFinish}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                      >
+                        انهاء
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">تم حفظ الفاتورة</h3>
+                    <p className="text-sm text-gray-600 mb-4">رقم الفاتورة: {invoiceNumber}</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handlePrintPDF}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        طباعة
+                      </button>
+                      <button
+                        onClick={handleFinish}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                      >
+                        انهاء
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

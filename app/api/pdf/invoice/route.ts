@@ -4,6 +4,249 @@ import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { invoiceNumber, totalAmount, paidAmount, discount, tax, paymentMethod, notes, items, isPriceDisplay } = body
+    
+    if (!items || !Array.isArray(items)) {
+      return NextResponse.json(
+        { error: 'بيانات المنتجات مطلوبة' },
+        { status: 400 }
+      )
+    }
+
+    // Create PDF document
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    // Set RTL text direction and Arabic font support
+    doc.setR2L(true)
+    
+    // Load custom Arabic font using jsPDF's proper font loading mechanism
+    try {
+      const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
+      const fontBuffer = readFileSync(fontPath)
+      
+      // Add the font to jsPDF's virtual file system
+      doc.addFileToVFS('Amiri-Regular.ttf', fontBuffer.toString('base64'))
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
+      
+      doc.setFont('Amiri', 'normal')
+      console.log('Custom font loaded successfully')
+    } catch (fontError) {
+      console.warn('Could not load custom font, using default:', fontError)
+      // Fallback to default font
+      doc.setFont('Amiri', 'normal')
+    }
+
+    // Page dimensions
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 20
+    const contentWidth = pageWidth - (margin * 2)
+
+    // Helper function to format currency
+    const formatCurrency = (amount: number) => {
+      return amount.toLocaleString('ar-EG', {
+        style: 'currency',
+        currency: 'EGP'
+      })
+    }
+
+    // Helper function to format date
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    }
+
+    let currentY = margin
+
+    // Header
+    doc.setFontSize(20)
+    doc.setTextColor(44, 90, 160)
+    const headerText = isPriceDisplay ? 'عرض السعر' : 'فاتورة مبيعات'
+    doc.text(headerText, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    currentY += 15
+
+    // Invoice number and date
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`رقم الفاتورة: ${invoiceNumber}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    doc.text(`التاريخ: ${formatDate(new Date())}`, margin, currentY, { align: 'left', isInputRtl: true })
+    currentY += 20
+
+    // Items table header
+    doc.setFontSize(14)
+    doc.setTextColor(44, 90, 160)
+    doc.text('تفاصيل الفاتورة', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    currentY += 15
+
+    // Table headers
+    const colWidths = [30, 40, 30, 30, 30, 30] // Product, Quantity, Price, Discount, Total
+    const colPositions = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1], 
+                         margin + colWidths[0] + colWidths[1] + colWidths[2],
+                         margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3],
+                         margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4]]
+
+    // Header background
+    doc.setFillColor(240, 240, 240)
+    doc.rect(margin, currentY, contentWidth, 15, 'F')
+
+    // Header text
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('Amiri', 'bold')
+    doc.text('الإجمالي', colPositions[5] + colWidths[5] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+    doc.text('الخصم', colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+    doc.text('السعر', colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+    doc.text('الكمية', colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+    doc.text('المنتج', colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+    doc.text('م', colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+
+    currentY += 20
+
+    // Items rows
+    doc.setFont('Amiri', 'normal')
+    let itemsTotalAmount = 0
+    let itemsTotalDiscount = 0
+
+    items.forEach((item: any, index: number) => {
+      // Check if we need a new page
+      if (currentY + 15 > pageHeight - margin - 50) {
+        doc.addPage()
+        currentY = margin
+      }
+
+      const itemTotal = Number(item.price) * item.quantity - Number(item.discount || 0)
+      itemsTotalAmount += itemTotal
+      itemsTotalDiscount += Number(item.discount || 0)
+
+      // Row background (alternating)
+      if (index % 2 === 0) {
+        doc.setFillColor(250, 250, 250)
+        doc.rect(margin, currentY, contentWidth, 15, 'F')
+      }
+
+      // Row data
+      doc.setFontSize(9)
+      doc.setTextColor(0, 0, 0)
+      doc.text((index + 1).toString(), colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+      doc.text(item.productName || item.name, colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+      doc.text(item.quantity.toString(), colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+      doc.text(formatCurrency(Number(item.price)), colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+      doc.text(formatCurrency(Number(item.discount || 0)), colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+      doc.text(formatCurrency(itemTotal), colPositions[5] + colWidths[5] - 5, currentY + 10, { align: 'right', isInputRtl: true })
+
+      currentY += 15
+    })
+
+    // Totals section
+    currentY += 10
+
+    // Check if we need a new page for totals
+    if (currentY + 60 > pageHeight - margin) {
+      doc.addPage()
+      currentY = margin
+    }
+
+    // Totals background
+    doc.setFillColor(240, 240, 240)
+    doc.rect(margin, currentY, contentWidth, 50, 'F')
+
+    // Totals text
+    doc.setFontSize(12)
+    doc.setFont('Amiri', 'bold')
+    doc.setTextColor(0, 0, 0)
+
+    const subtotal = itemsTotalAmount + (discount || 0) - (tax || 0)
+    const taxAmount = tax || 0
+    const discountAmount = discount || 0
+    const finalTotal = itemsTotalAmount
+
+    doc.text(`الإجمالي النهائي: ${formatCurrency(finalTotal)}`, pageWidth - margin, currentY + 15, { align: 'right', isInputRtl: true })
+    if (taxAmount > 0) {
+      doc.text(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY + 30, { align: 'right', isInputRtl: true })
+    }
+    if (discountAmount > 0) {
+      doc.text(`الخصم: ${formatCurrency(discountAmount)}`, pageWidth - margin, currentY + 45, { align: 'right', isInputRtl: true })
+    }
+
+    // Payment information
+    currentY += 60
+
+    if (currentY + 30 > pageHeight - margin) {
+      doc.addPage()
+      currentY = margin
+    }
+
+    doc.setFontSize(12)
+    doc.setTextColor(44, 90, 160)
+    doc.text('معلومات الدفع', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    currentY += 15
+
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`المدفوع: ${formatCurrency(Number(paidAmount || 0))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    currentY += 10
+    doc.text(`الباقي: ${formatCurrency(Number(finalTotal) - Number(paidAmount || 0))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    currentY += 10
+    doc.text(`طريقة الدفع: ${getPaymentMethodText(paymentMethod)}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+
+    // Notes
+    if (notes) {
+      currentY += 20
+      if (currentY + 20 > pageHeight - margin) {
+        doc.addPage()
+        currentY = margin
+      }
+
+      doc.setFontSize(12)
+      doc.setTextColor(44, 90, 160)
+      doc.text('ملاحظات', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+      currentY += 10
+
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 0)
+      doc.text(notes, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
+    }
+
+    // Footer
+    const footerY = pageHeight - 20
+    doc.setFontSize(8)
+    doc.setTextColor(128, 128, 128)
+    const footerText = isPriceDisplay ? 'عرض سعر - غير ملزم' : 'شكراً لتعاملكم معنا'
+    doc.text(footerText, pageWidth / 2, footerY, { align: 'center', isInputRtl: true })
+
+    // Generate PDF buffer
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
+    
+    console.log('Price display PDF generated successfully, size:', pdfBuffer.length, 'bytes')
+    
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="price_display_${new Date().toISOString().split('T')[0]}.pdf"`,
+      },
+    })
+
+  } catch (error) {
+    console.error('Error generating price display PDF:', error)
+    return NextResponse.json(
+      { error: 'حدث خطأ أثناء توليد عرض السعر' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -293,7 +536,12 @@ function getPaymentMethodText(method: string): string {
     'BANK_TRANSFER': 'تحويل بنكي',
     'CHECK': 'شيك',
     'MOBILE_PAYMENT': 'دفع إلكتروني',
-    'CASHBOX': 'صندوق'
+    'CASHBOX': 'صندوق',
+    'نقدا': 'نقدا',
+    'اجل': 'اجل',
+    'بطاقة': 'بطاقة',
+    'شيك': 'شيك',
+    'عرض سعر': 'عرض سعر'
   }
   return methods[method] || method
 }
