@@ -51,6 +51,7 @@ export default function SalesPage() {
   const [screenNumber, setScreenNumber] = useState(1)
   const [showScreenModal, setShowScreenModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
+  const [showInlineProductSelection, setShowInlineProductSelection] = useState(false)
   const [showCategoryView, setShowCategoryView] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
@@ -273,7 +274,9 @@ export default function SalesPage() {
         categoryMap.set(product.category.id, product.category)
       }
     })
-    return Array.from(categoryMap.values())
+    const categories = Array.from(categoryMap.values())
+    console.log('Categories found:', categories)
+    return categories
   }
 
   // Filter products by category
@@ -1237,29 +1240,117 @@ export default function SalesPage() {
                         </div>
                       </div>
 
-        {/* Add Products Button - Fixed above bottom bar */}
-        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-40">
-                        <button
-            onClick={() => setShowProductModal(true)}
-            className="p-2 text-white hover:text-white transition-colors bg-blue-600 hover:bg-blue-700 rounded-lg"
-            title="إضافة منتجات"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
-            </svg>
-                        </button>
+        {/* Inline Product Selection */}
+        {showInlineProductSelection && (
+          <div className="fixed inset-0 flex items-center justify-center z-40 pt-24 pb-0" dir="rtl">
+            <div className="w-full max-w-4xl mx-4 h-[40vh] overflow-hidden flex flex-col">
+              {/* Products Grid */}
+              <div className="flex-1 p-3 overflow-y-auto min-h-0 max-h-[50vh] flex items-center justify-center">
+                <div className="grid grid-cols-4 gap-2 pb-2 w-full">
+                  {getFilteredProducts().map(product => (
+                    <button
+                      key={product.id}
+                      onClick={() => {
+                        addProductToSale(product)
+                        setShowInlineProductSelection(false)
+                        setSelectedCategory(null)
+                        setShowCategoryView(false)
+                      }}
+                      className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                        product.color 
+                          ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
+                          : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        backgroundColor: product.color ? `${product.color}15` : undefined,
+                        borderColor: product.color ? `${product.color}40` : undefined
+                      }}
+                    >
+                      <div className="font-medium text-gray-900 text-xs leading-tight">
+                        {product.name}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Categories Section */}
+              {showCategoryView && (
+                <div className="flex-shrink-0 p-3 mt-1">
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setSelectedCategory(null)}
+                      className={`p-2 rounded-lg text-center transition-all duration-200 ${
+                        selectedCategory === null
+                          ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
+                          : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="text-sm font-medium">الكل</div>
+                    </button>
+                    {getCategories().map(category => (
+                      <button
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.id)}
+                        className={`p-2 rounded-lg text-center transition-all duration-200 ${
+                          selectedCategory === category.id
+                            ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
+                            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{category.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* Action Buttons - Fixed above bottom bar */}
+        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-50">
+          <div className="flex items-center justify-between">
+            {/* Add Products Button */}
+            <button
+              onClick={() => setShowInlineProductSelection(!showInlineProductSelection)}
+              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300"
+              title="إضافة منتجات"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
+              </svg>
+            </button>
+            
+            {/* Categories Button - Only show when add button is clicked */}
+            {showInlineProductSelection && (
+              <button
+                onClick={() => setShowCategoryView(!showCategoryView)}
+                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 ${
+                  showCategoryView ? 'bg-gray-100' : ''
+                }`}
+                title="الفئات"
+              >
+                <div className="w-5 h-5 border border-gray-400 rounded flex items-center justify-center">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Bottom Section - Fixed at bottom */}
         <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
