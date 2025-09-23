@@ -55,7 +55,7 @@ export default function ReturnInvoicePage() {
           setSelectedInvoice(null)
         }
       } else {
-        alert('خطأ في جلب الفاتورة')
+        alert('خطأ في وجود الفاتورة')
         setSelectedInvoice(null)
       }
     } catch (error) {
