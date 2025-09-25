@@ -146,7 +146,7 @@ export default function NewCategoryPage() {
 
       if (res.ok) {
         showNotification('success', 'تم حذف التصنيف')
-        setShowDeleteModal(false)
+        setShowEditModal(false)
         setSelectedCategory(null)
         fetchCategories()
       } else {

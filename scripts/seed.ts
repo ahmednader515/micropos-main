@@ -8,37 +8,43 @@ async function main() {
   try {
     // Create sample categories
     console.log('📂 Creating categories...')
+    
+    // Create root categories
     const electronicsCategory = await prisma.category.upsert({
-      where: { name: 'Electronics' },
+      where: { id: 'electronics-cat' },
       update: {},
       create: {
+        id: 'electronics-cat',
         name: 'Electronics',
         description: 'Electronic devices and accessories'
       }
     })
 
     const accessoriesCategory = await prisma.category.upsert({
-      where: { name: 'Accessories' },
+      where: { id: 'accessories-cat' },
       update: {},
       create: {
+        id: 'accessories-cat',
         name: 'Accessories',
         description: 'Computer and mobile accessories'
       }
     })
 
     const officeCategory = await prisma.category.upsert({
-      where: { name: 'Office Supplies' },
+      where: { id: 'office-cat' },
       update: {},
       create: {
+        id: 'office-cat',
         name: 'Office Supplies',
         description: 'Office and stationery items'
       }
     })
 
     const clothingCategory = await prisma.category.upsert({
-      where: { name: 'Clothing' },
+      where: { id: 'clothing-cat' },
       update: {},
       create: {
+        id: 'clothing-cat',
         name: 'Clothing',
         description: 'Apparel and fashion items'
       }
