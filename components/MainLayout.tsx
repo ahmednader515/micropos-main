@@ -46,16 +46,8 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
           <div className={`flex-shrink-0 z-30 shadow-sm lg:hidden ${navbarTitle ? 'bg-white' : 'bg-gradient-to-l from-blue-600 to-purple-600'}`}>
             {navbarTitle ? (
               <div className="flex items-center justify-between px-2 py-3 relative">
-                {/* Back button */}
-                <button
-                  onClick={onBack}
-                  className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 px-2"
-                  style={{ minWidth: 40 }}
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                {/* Spacer to keep title centered */}
+                <div style={{ minWidth: 40 }} />
                 {/* Title */}
                 <div className="flex-1 flex justify-center">
                   <h1 className="text-lg font-semibold text-gray-900 truncate">{navbarTitle}</h1>

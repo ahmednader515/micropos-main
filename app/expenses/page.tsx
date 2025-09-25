@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
 
@@ -70,10 +70,17 @@ export default function ExpensesPage() {
     }
   }
 
+  useEffect(() => {
+    try { window.history.pushState({ backToHome: true }, '') } catch {}
+    const onPop = () => { window.location.assign('/') }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   return (
     <MainLayout
       navbarTitle="المصروفات"
-      onBack={() => window.history.back()}
+      onBack={() => (window.location.href = '/')}
       menuOptions={[]}
     >
       <div className="space-y-6" dir="rtl">

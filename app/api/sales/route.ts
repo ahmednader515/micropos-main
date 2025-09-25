@@ -1,6 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Normalize incoming payment method values (Arabic/English/variants) to Prisma enum
+function normalizePaymentMethod(input: any): 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHECK' | 'MOBILE_PAYMENT' | 'CASHBOX' {
+  const raw = String(input || '').trim().toLowerCase()
+  // Arabic and English aliases
+  const aliases: Record<string, 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHECK' | 'MOBILE_PAYMENT' | 'CASHBOX'> = {
+    // cash
+    'cash': 'CASH',
+    'نقد': 'CASH',
+    'نقدا': 'CASH',
+    'كاش': 'CASH',
+    // card
+    'card': 'CARD',
+    'بطاقة': 'CARD',
+    'credit_card': 'CARD',
+    'credit': 'CARD',
+    // bank transfer
+    'bank_transfer': 'BANK_TRANSFER',
+    'bank transfer': 'BANK_TRANSFER',
+    'حوالة': 'BANK_TRANSFER',
+    'تحويل بنكي': 'BANK_TRANSFER',
+    // check
+    'check': 'CHECK',
+    'شيك': 'CHECK',
+    // mobile payment
+    'mobile_payment': 'MOBILE_PAYMENT',
+    'mobile payment': 'MOBILE_PAYMENT',
+    'mobile': 'MOBILE_PAYMENT',
+    'wallet': 'MOBILE_PAYMENT',
+    'محفظة': 'MOBILE_PAYMENT',
+    // cashbox internal
+    'cashbox': 'CASHBOX',
+    'صندوق': 'CASHBOX',
+  }
+
+  // Direct enum pass-through if caller sends valid enum
+  const upper = String(input || '').trim().toUpperCase()
+  if (['CASH', 'CARD', 'BANK_TRANSFER', 'CHECK', 'MOBILE_PAYMENT', 'CASHBOX'].includes(upper)) {
+    return upper as any
+  }
+
+  return aliases[raw] || 'CASH'
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -50,6 +93,9 @@ export async function POST(request: NextRequest) {
         )
       }
       
+      // Normalize payment method
+      const normalizedPayment = normalizePaymentMethod(paymentMethod)
+
       // Use the timestamp-based number
       const sale = await prisma.sale.create({
         data: {
@@ -59,7 +105,7 @@ export async function POST(request: NextRequest) {
           paidAmount: paidAmount || 0,
           discount: discount || 0,
           tax,
-          paymentMethod: paymentMethod || 'نقدا',
+          paymentMethod: normalizedPayment,
           notes,
           items: {
             create: items.map((item: any) => ({
@@ -115,7 +161,7 @@ export async function POST(request: NextRequest) {
           amount: paidAmount || 0,
           description: `فاتورة مبيعات ${finalInvoiceNumber}`,
           reference: sale.id,
-          paymentMethod: paymentMethod || 'نقدا'
+          paymentMethod: normalizedPayment
         }
       })
 
@@ -126,6 +172,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Normalize payment method
+    const normalizedPayment = normalizePaymentMethod(paymentMethod)
+
     // Create the sale with items (normal case)
     const sale = await prisma.sale.create({
       data: {
@@ -135,7 +184,7 @@ export async function POST(request: NextRequest) {
         paidAmount: paidAmount || 0,
         discount: discount || 0,
         tax,
-        paymentMethod: paymentMethod || 'CASH',
+        paymentMethod: normalizedPayment,
         notes,
         items: {
           create: items.map((item: any) => ({
@@ -191,7 +240,7 @@ export async function POST(request: NextRequest) {
         amount: paidAmount || 0,
         description: `فاتورة مبيعات ${generatedInvoiceNumber}`,
           reference: sale.id,
-        paymentMethod: paymentMethod || 'CASH'
+        paymentMethod: normalizedPayment
         }
       })
 

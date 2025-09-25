@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import InvoiceNumberInputPopup from './InvoiceNumberInputPopup'
+
 interface SidebarProps {
   onClose?: () => void
 }
@@ -24,6 +27,27 @@ const backup = [
 ]
 
 export default function Sidebar({ onClose }: SidebarProps) {
+  const [showEditSalesInvoicePopup, setShowEditSalesInvoicePopup] = useState(false)
+  const [showEditPurchaseInvoicePopup, setShowEditPurchaseInvoicePopup] = useState(false)
+
+  const handleAdvancedItemClick = (item: string) => {
+    if (item === 'تعديل فاتورة مبيعات') {
+      // Close the sidebar before showing popup
+      onClose?.()
+      setShowEditSalesInvoicePopup(true)
+    } else if (item === 'تعديل فاتورة مشتريات') {
+      onClose?.()
+      setShowEditPurchaseInvoicePopup(true)
+    }
+  }
+
+  const handleSubmitEditSalesInvoice = (invoiceNumber: string) => {
+    // Navigate to sales page with invoice loaded for editing
+    window.location.href = `/sales?edit=${encodeURIComponent(invoiceNumber)}`
+    setShowEditSalesInvoicePopup(false)
+    onClose?.()
+  }
+
   return (
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200" dir="rtl">
       <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4 flex-shrink-0">
@@ -43,7 +67,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div className="text-gray-700 font-bold mb-2">معالجات متقدمة</div>
           <ul className="space-y-1">
             {advancedProcessing.map((item, idx) => (
-              <li key={idx} className="rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition">
+              <li
+                key={idx}
+                onClick={() => handleAdvancedItemClick(item)}
+                className="cursor-pointer rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition"
+              >
                 {item}
               </li>
             ))}
@@ -68,7 +96,27 @@ export default function Sidebar({ onClose }: SidebarProps) {
             <p className="text-xs text-gray-500">admin@micropos.com</p>
           </div>
         </div>
-      </div>
+    </div>
+      {showEditSalesInvoicePopup && (
+        <InvoiceNumberInputPopup
+          isVisible={showEditSalesInvoicePopup}
+          onClose={() => setShowEditSalesInvoicePopup(false)}
+          title="إدخال رقم فاتورة المبيعات للتعديل"
+          onSubmit={handleSubmitEditSalesInvoice}
+        />
+      )}
+      {showEditPurchaseInvoicePopup && (
+        <InvoiceNumberInputPopup
+          isVisible={showEditPurchaseInvoicePopup}
+          onClose={() => setShowEditPurchaseInvoicePopup(false)}
+          title="إدخال رقم فاتورة المشتريات للتعديل"
+          onSubmit={(invoiceNumber) => {
+            window.location.href = `/purchases?edit=${encodeURIComponent(invoiceNumber)}`
+            setShowEditPurchaseInvoicePopup(false)
+            onClose?.()
+          }}
+        />
+      )}
     </div>
   )
 } 

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
 import BarcodeInput from '@/components/BarcodeInput'
+import ConfirmNavigationPopup from '@/components/ConfirmNavigationPopup'
 
 interface Product {
   id: string
@@ -105,6 +106,34 @@ export default function SalesPage() {
     type: 'success' | 'error' | 'info'
     message: string
   } | null>(null)
+  const [hideSelectedCustomerDisplay, setHideSelectedCustomerDisplay] = useState(false)
+
+  // Intercept browser/mobile back
+  const [showConfirmLeave, setShowConfirmLeave] = useState(false)
+  const allowNavigationRef = useRef(false)
+
+  useEffect(() => {
+    // Push a dummy state so back triggers popstate here first
+    try {
+      window.history.pushState({ preventExit: true }, '')
+    } catch {}
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (allowNavigationRef.current) {
+        return
+      }
+      // Immediately push back to keep user on page and show confirm
+      try {
+        window.history.pushState({ preventExit: true }, '')
+      } catch {}
+      setShowConfirmLeave(true)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   // Function to play sound when product is added
   const playAddProductSound = () => {
@@ -195,9 +224,11 @@ export default function SalesPage() {
               })
             }
             setCustomerSearchValue(invoice.customer.name)
+            setHideSelectedCustomerDisplay(true)
           } else {
             setSelectedCustomer(null)
             setCustomerSearchValue('')
+            setHideSelectedCustomerDisplay(false)
           }
 
           // Convert sale items to the format expected by the sales screen
@@ -450,12 +481,14 @@ export default function SalesPage() {
     setCustomerSearchValue(customer.name)
     setShowCustomerDropdown(false)
     setShowCustomerSearch(false)
+    setHideSelectedCustomerDisplay(false)
   }
 
   const handleCustomerClear = () => {
     setSelectedCustomer(null)
     setCustomerSearchValue('')
     setShowCustomerSearch(false)
+    setHideSelectedCustomerDisplay(false)
   }
 
   const handleCheckoutClick = () => {
@@ -1003,7 +1036,7 @@ export default function SalesPage() {
     return (
       <MainLayout
         navbarTitle="المبيعات"
-        onBack={() => window.history.back()}
+        onBack={() => setShowConfirmLeave(true)}
         menuOptions={menuOptions}
       >
         <div className="flex items-center justify-center h-64">
@@ -1016,7 +1049,7 @@ export default function SalesPage() {
   return (
     <MainLayout
       navbarTitle={isPriceFixed ? `المبيعات - سعر البيع ${selectedMenuPrice}` : "المبيعات"}
-      onBack={() => window.history.back()}
+      onBack={() => setShowConfirmLeave(true)}
       menuOptions={menuOptions}
     >
       <div className="h-full flex flex-col -m-4 lg:-m-6" dir="rtl">
@@ -1180,8 +1213,8 @@ export default function SalesPage() {
           </div>
         )}
 
-        {/* Selected Customer Display */}
-        {selectedCustomer && !showCustomerSearch && (
+        {/* Selected Customer Display (hidden when invoice loaded for edit) */}
+        {selectedCustomer && !showCustomerSearch && !hideSelectedCustomerDisplay && (
           <div className="w-full bg-blue-50 border-b border-blue-200 p-3" dir="rtl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -2329,6 +2362,21 @@ export default function SalesPage() {
           onClose={() => setNotification(null)}
         />
       )}
+      {/* Confirm Leave Popup */}
+      <ConfirmNavigationPopup
+        isVisible={showConfirmLeave}
+        title="تأكيد الرجوع"
+        message="هل تريد الرجوع وترك صفحة المبيعات؟ قد تفقد التغييرات غير المحفوظة."
+        confirmLabel="نعم، رجوع"
+        cancelLabel="لا"
+        onConfirm={() => {
+          allowNavigationRef.current = true
+          setShowConfirmLeave(false)
+            window.location.assign('/')
+        }}
+        onCancel={() => setShowConfirmLeave(false)}
+      />
+
     </MainLayout>
   )
-} 
+}

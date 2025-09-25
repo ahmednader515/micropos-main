@@ -1,5 +1,7 @@
 import MainLayout from '@/components/MainLayout'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import ConfirmNavigationPopup from '@/components/ConfirmNavigationPopup'
 
 const homeButtons = [
   { label: 'المبيعات', icon: '💰', href: '/sales' },
@@ -13,6 +15,19 @@ const homeButtons = [
 ]
 
 export default function Home() {
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+
+  useEffect(() => {
+    try { window.history.pushState({ exitApp: true }, '') } catch {}
+    const onPop = () => {
+      // Keep user on the page and show confirm to close
+      try { window.history.pushState({ exitApp: true }, '') } catch {}
+      setShowExitConfirm(true)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   return (
     <MainLayout>
       <div className="min-h-0 bg-gray-100" dir="rtl">
@@ -31,6 +46,19 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <ConfirmNavigationPopup
+        isVisible={showExitConfirm}
+        title="تأكيد الخروج"
+        message="هل تريد إغلاق التطبيق؟"
+        confirmLabel="نعم"
+        cancelLabel="لا"
+        onConfirm={() => {
+          setShowExitConfirm(false)
+          window.close()
+        }}
+        onCancel={() => setShowExitConfirm(false)}
+      />
     </MainLayout>
   )
 } 

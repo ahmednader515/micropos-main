@@ -42,6 +42,13 @@ export default function CashboxPage() {
   }, [])
 
   useEffect(() => {
+    try { window.history.pushState({ backToHome: true }, '') } catch {}
+    const onPop = () => { window.location.assign('/') }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => {
     const toLocalDateInput = (d: Date) => {
       const year = d.getFullYear()
       const month = String(d.getMonth() + 1).padStart(2, '0')
@@ -151,7 +158,7 @@ export default function CashboxPage() {
     return (
       <MainLayout
         navbarTitle="الصندوق"
-        onBack={() => window.history.back()}
+        onBack={() => (window.location.href = '/')}
         menuOptions={[]}
       >
         <div className="flex items-center justify-center h-64">
@@ -164,7 +171,7 @@ export default function CashboxPage() {
   return (
     <MainLayout
       navbarTitle="الصندوق"
-      onBack={() => window.history.back()}
+      onBack={() => (window.location.href = '/')}
       menuOptions={[]}
     >
       <div className="max-w-sm mx-auto w-full p-3 space-y-3" dir="rtl">

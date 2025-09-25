@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
 import BarcodeInput from '@/components/BarcodeInput'
+import ConfirmNavigationPopup from '@/components/ConfirmNavigationPopup'
 
 interface Product {
   id: string
@@ -115,6 +116,32 @@ export default function PurchasesPage() {
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
+  const [hideSelectedSupplierDisplay, setHideSelectedSupplierDisplay] = useState(false)
+
+  // Intercept browser/mobile back
+  const [showConfirmLeave, setShowConfirmLeave] = useState(false)
+  const allowNavigationRef = useRef(false)
+
+  useEffect(() => {
+    try {
+      window.history.pushState({ preventExit: true }, '')
+    } catch {}
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (allowNavigationRef.current) {
+        return
+      }
+      try {
+        window.history.pushState({ preventExit: true }, '')
+      } catch {}
+      setShowConfirmLeave(true)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   // Function to play sound when product is added
   const playAddProductSound = () => {
@@ -356,12 +383,14 @@ export default function PurchasesPage() {
     setSupplierSearchValue(supplier.name)
     setShowSupplierDropdown(false)
     setShowSupplierSearch(false)
+    setHideSelectedSupplierDisplay(false)
   }
 
   const handleSupplierClear = () => {
     setSelectedSupplier(null)
     setSupplierSearchValue('')
     setShowSupplierSearch(false)
+    setHideSelectedSupplierDisplay(false)
   }
 
   const handleCheckoutClick = () => {
@@ -868,9 +897,11 @@ export default function PurchasesPage() {
           })
         }
         setSupplierSearchValue(searchedInvoice.supplier.name)
+        setHideSelectedSupplierDisplay(true)
       } else {
         setSelectedSupplier(null)
         setSupplierSearchValue('')
+        setHideSelectedSupplierDisplay(false)
       }
 
       // Convert purchase items to the format expected by the purchase screen
@@ -940,7 +971,7 @@ export default function PurchasesPage() {
     return (
       <MainLayout
         navbarTitle="المشتريات"
-        onBack={() => window.history.back()}
+        onBack={() => setShowConfirmLeave(true)}
         menuOptions={menuOptions}
       >
         <div className="flex items-center justify-center h-64">
@@ -953,7 +984,7 @@ export default function PurchasesPage() {
   return (
     <MainLayout
       navbarTitle="المشتريات"
-      onBack={() => window.history.back()}
+      onBack={() => setShowConfirmLeave(true)}
       menuOptions={menuOptions}
     >
       <div className="h-full flex flex-col -m-4 lg:-m-6" dir="rtl">
@@ -1692,10 +1723,10 @@ export default function PurchasesPage() {
                   </div>
                 </div>
 
-                {/* Supplier Account */}
+                {/* Supplier Account (hidden when invoice loaded for edit) */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">حفظ الفاتورة لحساب مورد</label>
-                  {selectedSupplier ? (
+                  {selectedSupplier && !hideSelectedSupplierDisplay ? (
                     <div className="px-2 sm:px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg text-sm font-medium text-blue-900">
                       {selectedSupplier.name} - الرصيد: {formatCurrency(parseFloat(selectedSupplier.balance))}
                     </div>
@@ -1936,6 +1967,21 @@ export default function PurchasesPage() {
             </div>
           </div>
         )}
+
+        {/* Confirm Leave Popup */}
+        <ConfirmNavigationPopup
+          isVisible={showConfirmLeave}
+          title="تأكيد الرجوع"
+          message="هل تريد الرجوع وترك صفحة المشتريات؟ قد تفقد التغييرات غير المحفوظة."
+          confirmLabel="نعم، رجوع"
+          cancelLabel="لا"
+          onConfirm={() => {
+            allowNavigationRef.current = true
+            setShowConfirmLeave(false)
+            window.location.assign('/')
+          }}
+          onCancel={() => setShowConfirmLeave(false)}
+        />
 
         {/* Notification */}
         {notification && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 
 export default function SuppliersPage() {
@@ -85,7 +85,7 @@ export default function SuppliersPage() {
       <div className="sticky top-0 z-30 bg-white shadow-sm flex items-center justify-between px-2 py-3 lg:hidden">
         {/* Back button on the left for LTR */}
         <button
-          onClick={() => window.history.back()}
+          onClick={() => (window.location.href = '/')}
           className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 px-2"
           style={{ minWidth: 40 }}
         >
@@ -103,6 +103,12 @@ export default function SuppliersPage() {
     );
   }
 
+  useEffect(() => {
+    try { window.history.pushState({ backToHome: true }, '') } catch {}
+    const onPop = () => { window.location.assign('/') }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   return (
     <MainLayout hideNavbar={true}>
       <SuppliersNavbar />

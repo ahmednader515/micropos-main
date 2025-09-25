@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
 import SalesReportsPopup from '@/components/SalesReportsPopup'
@@ -924,8 +924,15 @@ export default function InquiriesPage() {
     }
   ]
 
+  useEffect(() => {
+    try { window.history.pushState({ backToHome: true }, '') } catch {}
+    const onPop = () => { window.location.assign('/') }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   return (
-    <MainLayout navbarTitle="الاستعلامات" onBack={() => window.history.back()} menuOptions={[]} removeTopPadding={true}>
+    <MainLayout navbarTitle="الاستعلامات" onBack={() => (window.location.href = '/')} menuOptions={[]} removeTopPadding={true}>
       <div className="-mx-4">
 
         {/* Date Selector */}
