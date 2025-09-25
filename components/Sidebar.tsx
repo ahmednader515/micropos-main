@@ -38,6 +38,50 @@ export default function Sidebar({ onClose }: SidebarProps) {
     } else if (item === 'تعديل فاتورة مشتريات') {
       onClose?.()
       setShowEditPurchaseInvoicePopup(true)
+    } else if (item === 'الغاء فاتورة مبيعات/مشتريات') {
+      // Navigate to cancel invoice page
+      onClose?.()
+      window.location.href = '/cancel-invoice'
+    } else if (item === 'الغاء مبلغ - صندوق/مصروفات') {
+      // Navigate to cashbox page for amount cancellation
+      onClose?.()
+      window.location.href = '/cashbox'
+    } else if (item === 'الغاء سند - قبض/صرف') {
+      // Navigate to customers page for receipt cancellation
+      onClose?.()
+      window.location.href = '/customers'
+    } else if (item === 'ارجاع فاتورة مبيعات') {
+      // Navigate to return invoice page for sales
+      onClose?.()
+      window.location.href = '/return-invoice?type=sales'
+    } else if (item === 'ارجاع فاتورة مشتريات') {
+      // Navigate to return invoice page for purchases
+      onClose?.()
+      window.location.href = '/return-invoice?type=purchases'
+    } else if (item === 'الغاء فاتورة مرتجع مبيعات') {
+      // Navigate to return invoice page for canceling returns
+      onClose?.()
+      window.location.href = '/return-invoice?action=cancel'
+    } else if (item === 'التحويل بين العملاء و الموردين') {
+      // Navigate to customers page for transfer functionality
+      onClose?.()
+      window.location.href = '/customers?action=transfer'
+    } else if (item === 'معالجة المنتجات التالفة') {
+      // Navigate to inventory page for damaged products
+      onClose?.()
+      window.location.href = '/inventory?action=damaged'
+    } else if (item === 'شاشة عرض الأسعار') {
+      // Navigate to price display page
+      onClose?.()
+      window.location.href = '/price-display'
+    }
+  }
+
+  const handleBackupItemClick = (item: string) => {
+    if (item === 'النسخ الاحتياطي للبيانات') {
+      // Navigate to settings page for backup functionality
+      onClose?.()
+      window.location.href = '/settings?action=backup'
     }
   }
 
@@ -81,7 +125,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div className="text-gray-700 font-bold mb-2">النسخ الاحتياطي</div>
           <ul className="space-y-1">
             {backup.map((item, idx) => (
-              <li key={idx} className="rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition">
+              <li 
+                key={idx} 
+                onClick={() => handleBackupItemClick(item)}
+                className="cursor-pointer rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition"
+              >
                 {item}
               </li>
             ))}

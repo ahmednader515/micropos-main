@@ -33,21 +33,43 @@ export async function POST(request: Request) {
     await prisma.$connect()
 
     const body = await request.json()
-    const { name, description } = body
+    const { name, description, parentId } = body
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'اسم التصنيف مطلوب' }, { status: 400 })
     }
 
-    const existing = await prisma.category.findUnique({ where: { name } })
+    // Check if category with same name exists under the same parent
+    const existing = await prisma.category.findFirst({ 
+      where: { 
+        name: name.trim(),
+        parentId: parentId || null
+      } 
+    })
     if (existing) {
-      return NextResponse.json({ error: 'هذا التصنيف موجود بالفعل' }, { status: 400 })
+      return NextResponse.json({ error: 'هذا التصنيف موجود بالفعل في نفس المستوى' }, { status: 400 })
+    }
+
+    // Calculate level and path
+    let level = 0
+    let path = name.trim()
+    
+    if (parentId) {
+      const parent = await prisma.category.findUnique({ where: { id: parentId } })
+      if (!parent) {
+        return NextResponse.json({ error: 'التصنيف الأب غير موجود' }, { status: 400 })
+      }
+      level = parent.level + 1
+      path = parent.path ? `${parent.path}/${name.trim()}` : `${parent.name}/${name.trim()}`
     }
 
     const category = await prisma.category.create({
       data: {
         name: name.trim(),
         description: description ? String(description) : null,
+        parentId: parentId || null,
+        level,
+        path
       },
     })
 

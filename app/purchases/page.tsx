@@ -57,6 +57,8 @@ export default function PurchasesPage() {
   const [showInlineProductSelection, setShowInlineProductSelection] = useState(false)
   const [showCategoryView, setShowCategoryView] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [categories, setCategories] = useState<any[]>([])
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [showProductDetails, setShowProductDetails] = useState(false)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<PurchaseItem | null>(null)
@@ -184,7 +186,8 @@ export default function PurchasesPage() {
       setLoading(true)
       await Promise.all([
         fetchProducts(),
-        fetchSuppliers()
+        fetchSuppliers(),
+        fetchCategories()
       ])
     } catch (error) {
       showNotification('error', 'فشل في جلب البيانات')
@@ -209,6 +212,14 @@ export default function PurchasesPage() {
     }
   }
 
+  const fetchCategories = async () => {
+    const response = await fetch('/api/categories/hierarchy')
+    if (response.ok) {
+      const data = await response.json()
+      setCategories(data.categories || [])
+    }
+  }
+
   // Get unique categories from products
   const getCategories = () => {
     const categoryMap = new Map()
@@ -220,13 +231,106 @@ export default function PurchasesPage() {
     return Array.from(categoryMap.values())
   }
 
+  // Flatten all categories into a single array
+  const flattenCategories = (categories: any[]): any[] => {
+    const result: any[] = []
+    
+    const flatten = (cats: any[]) => {
+      cats.forEach(cat => {
+        result.push(cat)
+        if (cat.children && cat.children.length > 0) {
+          flatten(cat.children)
+        }
+      })
+    }
+    
+    flatten(categories)
+    return result
+  }
+
+  // Get all category IDs including subcategories
+  const getAllCategoryIds = (categories: any[], targetId: string): string[] => {
+    const result: string[] = [targetId]
+    const allCategories = flattenCategories(categories)
+    
+    const findSubcategories = (parentId: string) => {
+      allCategories.forEach(cat => {
+        if (cat.parentId === parentId) {
+          result.push(cat.id)
+          findSubcategories(cat.id) // Recursively find deeper subcategories
+        }
+      })
+    }
+    
+    findSubcategories(targetId)
+    return result
+  }
+
+  const toggleCategoryExpansion = (categoryId: string) => {
+    const newExpanded = new Set(expandedCategories)
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId)
+    } else {
+      newExpanded.add(categoryId)
+    }
+    setExpandedCategories(newExpanded)
+  }
+
+  // Render hierarchical categories
+  const renderCategoryTree = (categories: any[], level = 0) => {
+    return categories.map((category) => (
+      <div key={category.id} className="w-full">
+        <button
+          onClick={() => setSelectedCategory(category.id)}
+          className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
+            selectedCategory === category.id
+              ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
+              : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+          }`}
+          style={{ marginLeft: `${level * 8}px` }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium truncate">{category.name}</div>
+            {category.children && category.children.length > 0 && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleCategoryExpansion(category.id)
+                }}
+                className="p-1 hover:bg-gray-200 rounded cursor-pointer"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${expandedCategories.has(category.id) ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            )}
+          </div>
+        </button>
+        {category.children && category.children.length > 0 && expandedCategories.has(category.id) && (
+          <div className="ml-2">
+            {renderCategoryTree(category.children, level + 1)}
+          </div>
+        )}
+      </div>
+    ))
+  }
+
   // Filter products by category and search
   const getFilteredProducts = () => {
     let filtered = products
 
     // Filter by category if selected
     if (selectedCategory) {
-      filtered = filtered.filter(product => product.category?.id === selectedCategory)
+      // Get all category IDs including subcategories
+      const allCategoryIds = getAllCategoryIds(categories, selectedCategory)
+      filtered = filtered.filter(product => 
+        product.category?.id && allCategoryIds.includes(product.category.id)
+      )
     }
 
     // Filter by search term
@@ -1142,11 +1246,11 @@ export default function PurchasesPage() {
 
               {/* Categories Section */}
               {showCategoryView && (
-                <div className="flex-shrink-0 p-3 mt-1">
-                  <div className="grid grid-cols-3 gap-3">
+                <div className="flex-shrink-0 p-3 mt-1 max-h-60 overflow-y-auto">
+                  <div className="space-y-2">
                     <button
                       onClick={() => setSelectedCategory(null)}
-                      className={`p-2 rounded-lg text-center transition-all duration-200 ${
+                      className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
                         selectedCategory === null
                           ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
                           : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
@@ -1154,19 +1258,7 @@ export default function PurchasesPage() {
                     >
                       <div className="text-sm font-medium">الكل</div>
                     </button>
-                    {getCategories().map(category => (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`p-2 rounded-lg text-center transition-all duration-200 ${
-                          selectedCategory === category.id
-                            ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
-                            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="text-sm font-medium">{category.name}</div>
-                      </button>
-                    ))}
+                    {renderCategoryTree(categories)}
                   </div>
                 </div>
               )}
@@ -1325,11 +1417,11 @@ export default function PurchasesPage() {
 
                   {/* Categories Grid */}
                   {showCategoryView && (
-                    <div className="p-4 pt-0">
-                      <div className="grid grid-cols-3 gap-2">
+                    <div className="p-4 pt-0 max-h-80 overflow-y-auto">
+                      <div className="space-y-2">
                         <button
                           onClick={() => setSelectedCategory(null)}
-                          className={`p-3 rounded-lg text-center transition-all duration-200 ${
+                          className={`w-full p-3 rounded-lg text-center transition-all duration-200 ${
                             selectedCategory === null
                               ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
                               : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
@@ -1337,19 +1429,7 @@ export default function PurchasesPage() {
                         >
                           <div className="text-sm font-medium">الكل</div>
                         </button>
-                        {getCategories().map(category => (
-                          <button
-                            key={category.id}
-                            onClick={() => setSelectedCategory(category.id)}
-                            className={`p-3 rounded-lg text-center transition-all duration-200 ${
-                              selectedCategory === category.id
-                                ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
-                                : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
-                            }`}
-                          >
-                            <div className="text-sm font-medium truncate">{category.name}</div>
-                          </button>
-                        ))}
+                        {renderCategoryTree(categories)}
                       </div>
                     </div>
                   )}

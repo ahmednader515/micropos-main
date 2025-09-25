@@ -23,16 +23,22 @@ model User {
   @@map("users")
 }
 
-// Product categories
+// Product categories with hierarchical support
 model Category {
   id          String   @id @default(cuid())
-  name        String   @unique
+  name        String
   description String?
+  parentId    String?
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  level       Int      @default(0) // 0 = root, 1 = subcategory, 2 = sub-subcategory, etc.
+  path        String?  // Full path like "chips/chips-5/salt" for easy querying
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   products Product[]
 
+  @@unique([name, parentId]) // Unique name within same parent
   @@map("categories")
 }
 

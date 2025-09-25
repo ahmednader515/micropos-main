@@ -143,67 +143,73 @@ export default function CancelInvoicePage() {
         </div>
       </div>
 
-      <div className="p-4 lg:p-6">
+      <div className="p-3 sm:p-4 lg:p-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="hidden lg:block text-2xl font-bold text-gray-900 mb-6">إلغاء الفاتورة</h1>
           
-          <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Invoice Type Selection */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">نوع الفاتورة</h3>
-              <div className="flex gap-6">
-                <label className="flex items-center">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">نوع الفاتورة</h3>
+              <div className="flex gap-2 sm:gap-4">
+                <label className="flex items-center p-2 sm:p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer flex-1">
                   <input
                     type="radio"
                     name="invoiceType"
                     value="sales"
                     checked={invoiceType === 'sales'}
                     onChange={(e) => setInvoiceType(e.target.value as 'sales' | 'purchases')}
-                    className="ml-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    className="ml-2 sm:ml-3 h-3 w-3 sm:h-4 sm:w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
-                  <span className="text-gray-700">فاتورة مبيعات</span>
+                  <span className="text-gray-700 text-xs sm:text-sm">فاتورة مبيعات</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center p-2 sm:p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer flex-1">
                   <input
                     type="radio"
                     name="invoiceType"
                     value="purchases"
                     checked={invoiceType === 'purchases'}
                     onChange={(e) => setInvoiceType(e.target.value as 'sales' | 'purchases')}
-                    className="ml-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    className="ml-2 sm:ml-3 h-3 w-3 sm:h-4 sm:w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
-                  <span className="text-gray-700">فاتورة مشتريات</span>
+                  <span className="text-gray-700 text-xs sm:text-sm">فاتورة مشتريات</span>
                 </label>
               </div>
             </div>
 
             {/* Invoice Number */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">رقم الفاتورة</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">رقم الفاتورة</h3>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   placeholder="أدخل رقم الفاتورة"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 sm:px-3 py-2 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 />
                 <button
                   onClick={() => handleViewInvoice()}
                   disabled={loading}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm whitespace-nowrap"
+                  className="px-3 sm:px-4 py-2 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-xs sm:text-sm whitespace-nowrap font-medium flex items-center gap-1"
                 >
-                  {loading ? 'جاري التحميل...' : 'عرض'}
+                  {loading && (
+                    <svg className="animate-spin h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  عرض
                 </button>
               </div>
             </div>
 
             {/* Cancel Button */}
             {selectedInvoice && (
-              <div className="pt-6 border-t">
+              <div className="pt-4 sm:pt-6 border-t">
                 <button
                   onClick={handleCancelInvoice}
-                  className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-lg font-semibold"
+                  className="w-full px-4 sm:px-6 py-3 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-base sm:text-lg font-semibold"
                 >
                   إلغاء الفاتورة
                 </button>
