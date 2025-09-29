@@ -98,11 +98,11 @@ export async function GET(request: NextRequest) {
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
     doc.text(`نسبة الزكاة: ${(zakatRate * 100).toFixed(1)}%`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`مبلغ الزكاة المستحق: ${zakatAmount.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`مبلغ الزكاة المستحق: ${zakatAmount.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 15
     
     // Generate PDF buffer

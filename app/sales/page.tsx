@@ -58,6 +58,7 @@ export default function SalesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [selectedParentCategory, setSelectedParentCategory] = useState<string | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [showProductDetails, setShowProductDetails] = useState(false)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<SaleItem | null>(null)
@@ -213,13 +214,15 @@ export default function SalesPage() {
                 setSelectedCustomer({
                   id: invoice.customer.id,
                   name: invoice.customer.name,
-                  balance: customerData.balance || '0'
+                  balance: customerData.balance || '0',
+                  phone: customerData.phone || null
                 })
               } else {
                 setSelectedCustomer({
                   id: invoice.customer.id,
                   name: invoice.customer.name,
-                  balance: '0'
+                  balance: '0',
+                  phone: undefined
                 })
               }
             } catch (error) {
@@ -227,7 +230,8 @@ export default function SalesPage() {
               setSelectedCustomer({
                 id: invoice.customer.id,
                 name: invoice.customer.name,
-                balance: '0'
+                balance: '0',
+                phone: undefined
               })
             }
             setCustomerSearchValue(invoice.customer.name)
@@ -339,43 +343,89 @@ export default function SalesPage() {
     setExpandedCategories(newExpanded)
   }
 
-  // Render hierarchical categories
+  // Render categories in grid layout (flat structure for grid display)
+  const renderCategoryGrid = (categories: any[], isSubcategoryView = false) => {
+    return categories.map((category) => (
+      <button
+        key={category.id}
+        onClick={() => {
+          if (category.children && category.children.length > 0) {
+            // If it's a parent category, show only its subcategories
+            setSelectedParentCategory(category.id)
+            setSelectedCategory(null) // Clear any selected category
+          } else {
+            // If it's a leaf category, select it and show its products
+            setSelectedCategory(category.id)
+            // Don't clear parent selection if we're in subcategory view
+            if (!isSubcategoryView) {
+              setSelectedParentCategory(null)
+            }
+          }
+        }}
+        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+          selectedCategory === category.id
+            ? 'bg-green-100 border-2 border-green-300 text-green-800'
+            : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-gray-900 text-xs leading-tight truncate">{category.name}</div>
+          {category.children && category.children.length > 0 && (
+            <div className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+              <svg
+                className="w-4 h-4 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          )}
+        </div>
+      </button>
+    ))
+  }
+
+  // Render hierarchical categories with improved folder-like behavior (for modal)
   const renderCategoryTree = (categories: any[], level = 0) => {
     return categories.map((category) => (
       <div key={category.id} className="w-full">
         <button
-          onClick={() => setSelectedCategory(category.id)}
-          className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
+          onClick={() => {
+            if (category.children && category.children.length > 0) {
+              // If it's a parent category, toggle expansion
+              toggleCategoryExpansion(category.id)
+            } else {
+              // If it's a leaf category, select it and show its products
+              setSelectedCategory(category.id)
+            }
+          }}
+          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
             selectedCategory === category.id
-              ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
-              : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
+              ? 'bg-green-100 border-2 border-green-300 text-green-800'
+              : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
           }`}
-          style={{ marginLeft: `${level * 8}px` }}
+          style={{ marginLeft: `${level * 12}px` }}
         >
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium truncate">{category.name}</div>
-                 {category.children && category.children.length > 0 && (
-                   <div
-                     onClick={(e) => {
-                       e.stopPropagation()
-                       toggleCategoryExpansion(category.id)
-                     }}
-                     className="p-1 hover:bg-gray-200 rounded cursor-pointer"
-                   >
-                     <svg
-                       className={`w-4 h-4 transition-transform ${expandedCategories.has(category.id) ? 'rotate-90' : ''}`}
-                       fill="none"
-                       stroke="currentColor"
-                       viewBox="0 0 24 24"
-                     >
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                     </svg>
-                   </div>
-                 )}
+            <div className="font-medium text-gray-900 text-xs leading-tight truncate">{category.name}</div>
+            {category.children && category.children.length > 0 && (
+              <div className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+                <svg
+                  className={`w-4 h-4 transition-transform ${expandedCategories.has(category.id) ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            )}
           </div>
         </button>
         {category.children && category.children.length > 0 && expandedCategories.has(category.id) && (
-          <div className="ml-2">
+          <div className="ml-4 mt-2 space-y-1 border-l-2 border-gray-200 pl-2">
             {renderCategoryTree(category.children, level + 1)}
           </div>
         )}
@@ -517,18 +567,14 @@ export default function SalesPage() {
   const handleProductClick = (item: SaleItem) => {
     setSelectedProductForDetails(item)
     
-    // Use fixed price if available, otherwise default to price1
-    const priceType = isPriceFixed && selectedMenuPrice ? `price${selectedMenuPrice}` as 'price1' | 'price2' | 'price3' : 'price1'
-    setSelectedPriceType(priceType)
-    
-    // Get the correct price based on the current display price
-    const correctPrice = getDisplayPrice(item)
+    // Get the current price from the sale item
+    const currentPrice = item.price
     
     setProductDetailsForm({
-      sellingPrice: correctPrice,
+      sellingPrice: currentPrice,
       quantity: item.quantity,
       discountAmount: item.discount,
-      discountPercentage: correctPrice > 0 ? (item.discount / correctPrice) * 100 : 0,
+      discountPercentage: 0, // Remove percentage calculation
       invoiceNote: '',
       removeFromList: false
     })
@@ -565,37 +611,11 @@ export default function SalesPage() {
   const handleDiscountAmountChange = (amount: number) => {
     setProductDetailsForm(prev => ({
       ...prev,
-      discountAmount: amount,
-      discountPercentage: prev.sellingPrice > 0 ? (amount / prev.sellingPrice) * 100 : 0
+      discountAmount: amount
     }))
   }
 
-  const handleDiscountPercentageChange = (percentage: number) => {
-    setProductDetailsForm(prev => ({
-      ...prev,
-      discountPercentage: percentage,
-      discountAmount: (prev.sellingPrice * prev.quantity * percentage) / 100
-    }))
-  }
 
-  const handlePriceTypeSelect = (priceType: 'price1' | 'price2' | 'price3') => {
-    setSelectedPriceType(priceType)
-    if (selectedProductForDetails) {
-      const product = products.find(p => p.id === selectedProductForDetails.productId)
-      if (product) {
-        let newPrice = product.price
-        if (priceType === 'price2') {
-          newPrice = product.price2 || product.price
-        } else if (priceType === 'price3') {
-          newPrice = product.price3 || product.price
-        }
-        setProductDetailsForm(prev => ({
-          ...prev,
-          sellingPrice: newPrice
-        }))
-      }
-    }
-  }
 
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer)
@@ -811,7 +831,7 @@ export default function SalesPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      showNotification('success', 'تم تحميل الفاتورة بنجاح')
+      // PDF downloaded successfully - no notification needed
     } catch (error) {
       console.error('Error generating PDF:', error)
       showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الفاتورة')
@@ -946,6 +966,8 @@ export default function SalesPage() {
     }))
     setCheckoutCustomerSearch(customer.name)
     setShowCheckoutCustomerDropdown(false)
+    // Also set the selectedCustomer for the success modal
+    setSelectedCustomer(customer)
   }
 
   const filteredCheckoutCustomers = customers.filter(customer =>
@@ -1164,13 +1186,15 @@ export default function SalesPage() {
             setSelectedCustomer({
               id: searchedInvoice.customer.id,
               name: searchedInvoice.customer.name,
-              balance: customerData.balance || '0'
+              balance: customerData.balance || '0',
+              phone: customerData.phone || null
             })
           } else {
             setSelectedCustomer({
               id: searchedInvoice.customer.id,
               name: searchedInvoice.customer.name,
-              balance: '0'
+              balance: '0',
+              phone: undefined
             })
           }
         } catch (error) {
@@ -1178,7 +1202,8 @@ export default function SalesPage() {
           setSelectedCustomer({
             id: searchedInvoice.customer.id,
             name: searchedInvoice.customer.name,
-            balance: '0'
+            balance: '0',
+            phone: undefined
           })
         }
         setCustomerSearchValue(searchedInvoice.customer.name)
@@ -1242,16 +1267,17 @@ export default function SalesPage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
+    const englishNumerals = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })
+    return `${englishNumerals} ج.م`
   }
 
   const formatPriceInArabic = (amount: number) => {
-    // Convert to Arabic numerals
-    const arabicNumerals = amount.toLocaleString('ar-EG')
-    return `${arabicNumerals} ج.م`
+    // Convert to English numerals
+    const englishNumerals = amount.toLocaleString('en-US')
+    return `${englishNumerals} ج.م`
   }
 
   const getDisplayPrice = (item: SaleItem) => {
@@ -1483,9 +1509,16 @@ export default function SalesPage() {
           </div>
         )}
 
-        {/* Products Table */}
-        <div className="flex-1 overflow-auto min-h-0 bg-gray-50 pb-20">
-          <div className="h-full">
+        {/* Cart/Selected Items Section - Dynamic Height */}
+        <div 
+          className="overflow-auto min-h-0 bg-gray-50"
+          style={{
+            height: showInlineProductSelection 
+              ? (showCategoryView ? 'calc(100vh - 50vh - 200px)' : 'calc(100vh - 35vh - 200px)')
+              : 'calc(100vh - 200px)'
+          }}
+        >
+          <div className="h-full overflow-y-auto">
             <table className="w-full text-sm" dir="rtl">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
@@ -1514,58 +1547,77 @@ export default function SalesPage() {
                 ))}
               </tbody>
             </table>
-                        </div>
-                      </div>
+          </div>
+        </div>
 
-        {/* Inline Product Selection */}
+        {/* Products and Categories Section - Slightly increased height */}
         {showInlineProductSelection && (
-          <div className="fixed inset-0 flex items-center justify-center z-40 pt-24 pb-0" dir="rtl">
-            <div className="w-full max-w-4xl mx-4 h-[40vh] overflow-hidden flex flex-col">
-              {/* Products Grid */}
-              <div className="flex-1 p-3 overflow-y-auto min-h-0 max-h-[50vh]">
-                <div className="grid grid-cols-4 gap-2 pb-2 w-full">
-                  {getFilteredProducts().map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => {
-                        addProductToSale(product)
-                        setShowInlineProductSelection(false)
-                        setSelectedCategory(null)
-                        setShowCategoryView(false)
-                      }}
-                      className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
-                        product.color 
-                          ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
-                          : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
-                      }`}
-                      style={{
-                        backgroundColor: product.color ? `${product.color}15` : undefined,
-                        borderColor: product.color ? `${product.color}40` : undefined
-                      }}
-                    >
-                      <div className="font-medium text-gray-900 text-xs leading-tight">
-                        {product.name}
-                      </div>
-                    </button>
-                  ))}
+          <div className={`fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 z-40 ${showCategoryView ? 'h-[50vh]' : 'h-[35vh]'}`} dir="rtl">
+            <div className="flex flex-col h-full">
+              {/* Products Grid - Always scrollable with proper height constraints */}
+              <div className={`overflow-y-auto min-h-0 ${showCategoryView ? 'h-1/2' : 'h-full'}`}>
+                <div className="p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    {getFilteredProducts().map(product => (
+                      <button
+                        key={product.id}
+                        onClick={() => addProductToSale(product)}
+                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                          product.color 
+                            ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
+                            : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                        }`}
+                        style={{
+                          backgroundColor: product.color ? `${product.color}15` : undefined,
+                          borderColor: product.color ? `${product.color}40` : undefined
+                        }}
+                      >
+                        <div className="font-medium text-gray-900 text-xs leading-tight">
+                          {product.name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Categories Section */}
+              
+              {/* Categories Section - Scrollable */}
               {showCategoryView && (
-                <div className="flex-shrink-0 p-3 mt-1 max-h-60 overflow-y-auto">
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => setSelectedCategory(null)}
-                      className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
-                        selectedCategory === null
-                          ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
-                          : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="text-sm font-medium">الكل</div>
-                    </button>
-                    {renderCategoryTree(categories)}
+                <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 h-1/2 overflow-y-auto">
+                  <div className="p-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      {!selectedParentCategory && (
+                        <button
+                          onClick={() => {
+                            setSelectedCategory(null)
+                            setSelectedParentCategory(null)
+                          }}
+                          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                            selectedCategory === null && selectedParentCategory === null
+                              ? 'bg-green-100 border-2 border-green-300 text-green-800'
+                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900 text-xs leading-tight">الكل</div>
+                        </button>
+                      )}
+                      
+                      {selectedParentCategory ? (
+                        // Show only subcategories of selected parent
+                        <>
+                          {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
+                          <button
+                            onClick={() => setSelectedParentCategory(null)}
+                            className="p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
+                          >
+                            <div className="font-medium text-gray-900 text-xs leading-tight">← العودة</div>
+                          </button>
+                        </>
+                      ) : (
+                        // Show all parent categories
+                        renderCategoryGrid(categories, false)
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1598,7 +1650,7 @@ export default function SalesPage() {
               </svg>
             </button>
             
-            {/* Categories Button - Only show when add button is clicked */}
+            {/* Categories Button - Only show when products are visible */}
             {showInlineProductSelection && (
               <button
                 onClick={() => setShowCategoryView(!showCategoryView)}
@@ -1616,6 +1668,7 @@ export default function SalesPage() {
             )}
           </div>
         </div>
+
 
         {/* Bottom Section - Fixed at bottom */}
         <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
@@ -1767,7 +1820,7 @@ export default function SalesPage() {
                   {/* Categories Grid */}
                   {showCategoryView && (
                     <div className="p-4 pt-0 max-h-80 overflow-y-auto">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <button
                           onClick={() => setSelectedCategory(null)}
                           className={`w-full p-3 rounded-lg text-center transition-all duration-200 ${
@@ -1778,7 +1831,9 @@ export default function SalesPage() {
                         >
                           <div className="text-sm font-medium">الكل</div>
                         </button>
-                        {renderCategoryTree(categories)}
+                        <div className="grid grid-cols-2 gap-2">
+                          {renderCategoryTree(categories)}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1811,43 +1866,11 @@ export default function SalesPage() {
                   <div className="text-sm sm:text-lg font-semibold text-gray-900 truncate">{selectedProductForDetails.name}</div>
                       </div>
 
-                {/* Selling Price Selection */}
+                {/* Selling Price Display */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">اختيار سعر البيع</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => handlePriceTypeSelect('price1')}
-                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
-                        selectedPriceType === 'price1'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      السعر 1
-                    </button>
-                    <button
-                      onClick={() => handlePriceTypeSelect('price2')}
-                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
-                        selectedPriceType === 'price2'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      السعر 2
-                    </button>
-                    <button
-                      onClick={() => handlePriceTypeSelect('price3')}
-                      className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
-                        selectedPriceType === 'price3'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      السعر 3
-                    </button>
-                  </div>
-                  <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-center">
-                    {formatPriceInArabic(productDetailsForm.sellingPrice)}
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">سعر البيع</label>
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-center">
+                    {formatCurrency(productDetailsForm.sellingPrice)}
                   </div>
                 </div>
 
@@ -1855,9 +1878,9 @@ export default function SalesPage() {
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية</label>
-                        <input
-                          type="number"
-                          min="1"
+                    <input
+                      type="number"
+                      min="1"
                       value={productDetailsForm.quantity === 1 ? '' : productDetailsForm.quantity}
                       placeholder="1"
                       onChange={(e) => {
@@ -1872,6 +1895,7 @@ export default function SalesPage() {
                         }
                       }}
                       className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      dir="ltr"
                     />
                   </div>
                   <div>
@@ -1884,53 +1908,24 @@ export default function SalesPage() {
 
                 {/* Discount */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">الخصم</label>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">المبلغ</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                        value={productDetailsForm.discountAmount || ''}
-                        placeholder="0.00"
-                        onChange={(e) => handleDiscountAmountChange(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">النسبة</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={productDetailsForm.discountPercentage || ''}
-                        placeholder="0.00"
-                        onChange={(e) => handleDiscountPercentageChange(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                  </div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الخصم</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productDetailsForm.discountAmount || ''}
+                    placeholder="0.00"
+                    onChange={(e) => handleDiscountAmountChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    dir="ltr"
+                  />
                 </div>
 
-                {/* Invoice Note and Available Stock */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ملاحظة تظهر في الفاتورة</label>
-                    <textarea
-                      value={productDetailsForm.invoiceNote}
-                      onChange={(e) => setProductDetailsForm(prev => ({ ...prev, invoiceNote: e.target.value }))}
-                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      rows={2}
-                      placeholder="أدخل ملاحظة..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية المتوفرة</label>
-                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm">
-                      {products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0} قطعة
-                    </div>
+                {/* Available Stock */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية المتوفرة</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm">
+                    {products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0} قطعة
                   </div>
                 </div>
 

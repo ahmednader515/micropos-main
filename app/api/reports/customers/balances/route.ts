@@ -149,13 +149,13 @@ export async function GET(request: NextRequest) {
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي الذمم: ${totalBalance.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي الذمم: ${totalBalance.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
     doc.text(`عدد العملاء: ${customers.length}`, margin, currentY, { isInputRtl: true })
     currentY += 15

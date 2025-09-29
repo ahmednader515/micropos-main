@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       doc.setFont('Amiri', 'normal')
       doc.text(`عدد المصروفات: ${expenses.length}`, margin, currentY, { isInputRtl: true })
       currentY += 6
-      doc.text(`إجمالي المبلغ: ${accountTotal.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+      doc.text(`إجمالي المبلغ: ${accountTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
       currentY += 10
 
       // Table header

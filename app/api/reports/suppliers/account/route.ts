@@ -144,15 +144,15 @@ export async function GET(request: NextRequest) {
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المشتريات: ${totalPurchases.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المشتريات: ${totalPurchases.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
     
     // Color code the balance
     const balanceColor = balance > 0 ? [255, 0, 0] : balance < 0 ? [0, 128, 0] : [0, 0, 0]
     doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2])
-    doc.text(`الرصيد: ${balance.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`الرصيد: ${balance.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     doc.setTextColor(0, 0, 0)
     
     currentY += 15

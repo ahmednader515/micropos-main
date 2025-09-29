@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المصروفات: ${totalExpenses.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المصروفات: ${totalExpenses.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     doc.text(`عدد المصروفات: ${expenses.length}`, margin, currentY + 8, { isInputRtl: true })
     currentY += 20
     

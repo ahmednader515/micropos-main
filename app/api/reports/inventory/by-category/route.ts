@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       currentY += 6
       doc.text(`إجمالي الكمية: ${categoryTotalStock}`, margin, currentY, { isInputRtl: true })
       currentY += 6
-      doc.text(`إجمالي القيمة: ${categoryTotalValue.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+      doc.text(`إجمالي القيمة: ${categoryTotalValue.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
       currentY += 10
 
       // Table header

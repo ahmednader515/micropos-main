@@ -136,10 +136,11 @@ export default function CashboxPage() {
   }
 
   const formatCurrency = (amount: string) => {
-    return parseFloat(amount).toLocaleString('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
+    const englishNumerals = parseFloat(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })
+    return `${englishNumerals} ج.م`
   }
 
   const formatDate = (dateString: string) => {

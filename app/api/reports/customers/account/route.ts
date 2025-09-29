@@ -164,11 +164,11 @@ export async function GET(request: NextRequest) {
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
     
     // Color code the balance
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     } else if (currentBalance < 0) {
       doc.setTextColor(0, 128, 0) // Green for negative balance (credit)
     }
-    doc.text(`الرصيد الحالي: ${currentBalance.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`الرصيد الحالي: ${currentBalance.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     doc.setTextColor(0, 0, 0) // Reset to black
     currentY += 15
     

@@ -117,10 +117,11 @@ export default function CancelInvoicePage() {
   }
 
   const formatCurrency = (amount: string | number) => {
-    return new Intl.NumberFormat('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
-    }).format(Number(amount))
+    const englishNumerals = Number(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+    return `${englishNumerals} ج.م`
   }
 
   return (

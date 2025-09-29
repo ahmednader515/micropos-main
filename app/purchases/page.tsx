@@ -60,6 +60,7 @@ export default function PurchasesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [selectedParentCategory, setSelectedParentCategory] = useState<string | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [showProductDetails, setShowProductDetails] = useState(false)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<PurchaseItem | null>(null)
@@ -322,6 +323,36 @@ export default function PurchasesPage() {
           </div>
         )}
       </div>
+    ))
+  }
+
+  // Render categories in grid layout (flat structure for grid display)
+  const renderCategoryGrid = (categories: any[], isSubcategoryView = false) => {
+    return categories.map((category) => (
+      <button
+        key={category.id}
+        onClick={() => {
+          if (category.children && category.children.length > 0) {
+            // If it's a parent category, show only its subcategories
+            setSelectedParentCategory(category.id)
+            setSelectedCategory(null) // Clear any selected category
+          } else {
+            // If it's a leaf category, select it and show its products
+            setSelectedCategory(category.id)
+            // Don't clear parent selection if we're in subcategory view
+            if (!isSubcategoryView) {
+              setSelectedParentCategory(null)
+            }
+          }
+        }}
+        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+          selectedCategory === category.id
+            ? 'bg-green-100 border-2 border-green-300 text-green-800'
+            : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+        }`}
+      >
+        <div className="font-medium text-gray-900 text-xs leading-tight">{category.name}</div>
+      </button>
     ))
   }
 
@@ -768,7 +799,7 @@ export default function PurchasesPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      showNotification('success', 'تم تحميل الفاتورة بنجاح')
+      // PDF downloaded successfully - no notification needed
     } catch (error) {
       console.error('Error generating PDF:', error)
       showNotification('error', error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الفاتورة')
@@ -1192,16 +1223,17 @@ export default function PurchasesPage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
+    const englishNumerals = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })
+    return `${englishNumerals} ج.م`
   }
 
   const formatPriceInArabic = (amount: number) => {
-    // Convert to Arabic numerals
-    const arabicNumerals = amount.toLocaleString('ar-EG')
-    return `${arabicNumerals} ج.م`
+    // Convert to English numerals
+    const englishNumerals = amount.toLocaleString('en-US')
+    return `${englishNumerals} ج.م`
   }
 
   const getDisplayTotal = (item: PurchaseItem) => {
@@ -1314,8 +1346,15 @@ export default function PurchasesPage() {
 
 
         {/* Products Table */}
-        <div className="flex-1 overflow-auto min-h-0 bg-gray-50 pb-20">
-          <div className="h-full">
+        <div 
+          className="overflow-auto min-h-0 bg-gray-50"
+          style={{
+            height: showInlineProductSelection 
+              ? (showCategoryView ? 'calc(100vh - 50vh - 200px)' : 'calc(100vh - 35vh - 200px)')
+              : 'calc(100vh - 200px)'
+          }}
+        >
+          <div className="h-full overflow-y-auto">
             <table className="w-full text-sm" dir="rtl">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
@@ -1347,55 +1386,74 @@ export default function PurchasesPage() {
           </div>
         </div>
 
-        {/* Inline Product Selection */}
+        {/* Products and Categories Section - Slightly increased height */}
         {showInlineProductSelection && (
-          <div className="fixed inset-0 flex items-center justify-center z-40 pt-24 pb-0" dir="rtl">
-            <div className="w-full max-w-4xl mx-4 h-[40vh] overflow-hidden flex flex-col">
-              {/* Products Grid */}
-              <div className="flex-1 p-3 overflow-y-auto min-h-0 max-h-[50vh] flex items-center justify-center">
-                <div className="grid grid-cols-4 gap-2 pb-2 w-full">
-                  {getFilteredProducts().map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => {
-                        addProductToPurchase(product)
-                        setShowInlineProductSelection(false)
-                        setSelectedCategory(null)
-                        setShowCategoryView(false)
-                      }}
-                      className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
-                        product.color 
-                          ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
-                          : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
-                      }`}
-                      style={{
-                        backgroundColor: product.color ? `${product.color}15` : undefined,
-                        borderColor: product.color ? `${product.color}40` : undefined
-                      }}
-                    >
-                      <div className="font-medium text-gray-900 text-xs leading-tight">
-                        {product.name}
-                      </div>
-                    </button>
-                  ))}
+          <div className={`fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 z-40 ${showCategoryView ? 'h-[50vh]' : 'h-[35vh]'}`} dir="rtl">
+            <div className="flex flex-col h-full">
+              {/* Products Grid - Always scrollable with proper height constraints */}
+              <div className={`overflow-y-auto min-h-0 ${showCategoryView ? 'h-1/2' : 'h-full'}`}>
+                <div className="p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    {getFilteredProducts().map(product => (
+                      <button
+                        key={product.id}
+                        onClick={() => addProductToPurchase(product)}
+                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                          product.color 
+                            ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
+                            : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                        }`}
+                        style={{
+                          backgroundColor: product.color ? `${product.color}15` : undefined,
+                          borderColor: product.color ? `${product.color}40` : undefined
+                        }}
+                      >
+                        <div className="font-medium text-gray-900 text-xs leading-tight">
+                          {product.name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Categories Section */}
+              
+              {/* Categories Section - Scrollable */}
               {showCategoryView && (
-                <div className="flex-shrink-0 p-3 mt-1 max-h-60 overflow-y-auto">
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => setSelectedCategory(null)}
-                      className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
-                        selectedCategory === null
-                          ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
-                          : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="text-sm font-medium">الكل</div>
-                    </button>
-                    {renderCategoryTree(categories)}
+                <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 h-1/2 overflow-y-auto">
+                  <div className="p-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      {!selectedParentCategory && (
+                        <button
+                          onClick={() => {
+                            setSelectedCategory(null)
+                            setSelectedParentCategory(null)
+                          }}
+                          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                            selectedCategory === null && selectedParentCategory === null
+                              ? 'bg-green-100 border-2 border-green-300 text-green-800'
+                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900 text-xs leading-tight">الكل</div>
+                        </button>
+                      )}
+                      
+                      {selectedParentCategory ? (
+                        // Show only subcategories of selected parent
+                        <>
+                          {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
+                          <button
+                            onClick={() => setSelectedParentCategory(null)}
+                            className="p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
+                          >
+                            <div className="font-medium text-gray-900 text-xs leading-tight">← العودة</div>
+                          </button>
+                        </>
+                      ) : (
+                        // Show all parent categories
+                        renderCategoryGrid(categories, false)
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

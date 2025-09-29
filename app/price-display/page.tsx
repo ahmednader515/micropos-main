@@ -55,10 +55,11 @@ export default function PriceDisplayPage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
-    }).format(amount)
+    const englishNumerals = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+    return `${englishNumerals} ج.م`
   }
 
   return (

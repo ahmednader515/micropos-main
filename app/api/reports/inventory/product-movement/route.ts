@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     doc.text(`اسم المنتج: ${product.name}`, margin, margin + 45, { isInputRtl: true })
     doc.text(`التصنيف: ${product.category?.name || 'غير محدد'}`, margin, margin + 55, { isInputRtl: true })
     doc.text(`الكمية الحالية: ${product.stock}`, margin, margin + 65, { isInputRtl: true })
-    doc.text(`السعر: ${product.price.toFixed(2)} ريال`, margin, margin + 75, { isInputRtl: true })
+    doc.text(`السعر: ${product.price.toFixed(2)} ج.م`, margin, margin + 75, { isInputRtl: true })
     
     // Date range
     const dateRange = `من ${start.toLocaleDateString('ar-SA')} إلى ${end.toLocaleDateString('ar-SA')}`
@@ -174,9 +174,9 @@ export async function GET(request: NextRequest) {
     currentY += 8
     doc.text(`إجمالي المشتريات: ${totalPurchases} وحدة`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`قيمة المبيعات: ${salesValue.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`قيمة المبيعات: ${salesValue.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`قيمة المشتريات: ${purchasesValue.toFixed(2)} ريال`, margin, currentY, { isInputRtl: true })
+    doc.text(`قيمة المشتريات: ${purchasesValue.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 15
     
     // Sales table
