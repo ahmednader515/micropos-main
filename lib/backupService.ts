@@ -39,16 +39,23 @@ export class BackupService {
     return this.googleDrive
   }
 
-  async createDatabaseBackup(): Promise<{ success: boolean; filePath?: string; error?: string }> {
+  async createDatabaseBackup(): Promise<{ success: boolean; filePath?: string; error?: string; data?: any }> {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const backupFileName = `micropos-backup-${timestamp}.json`
-      const backupPath = path.join(process.cwd(), 'backups', backupFileName)
-
-      // Ensure backups directory exists
-      const backupsDir = path.dirname(backupPath)
-      if (!fs.existsSync(backupsDir)) {
-        fs.mkdirSync(backupsDir, { recursive: true })
+      
+      // In serverless environments (like Vercel), don't create local files
+      const isServerless = process.env.VERCEL || process.env.NODE_ENV === 'production'
+      
+      let backupPath: string | undefined
+      
+      if (!isServerless) {
+        // Only create local files in development
+        backupPath = path.join(process.cwd(), 'backups', backupFileName)
+        const backupsDir = path.dirname(backupPath)
+        if (!fs.existsSync(backupsDir)) {
+          fs.mkdirSync(backupsDir, { recursive: true })
+        }
       }
 
       // Create a JSON backup using Prisma
@@ -133,17 +140,22 @@ export class BackupService {
         }
       }
 
-      // Write backup to file
-      fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2))
-
-      // Verify backup file was created
-      if (!fs.existsSync(backupPath)) {
-        throw new Error('Backup file was not created')
-      }
-
-      return {
-        success: true,
-        filePath: backupPath
+      if (isServerless) {
+        // In serverless environments, return data directly without creating local file
+        return { success: true, data: backupData }
+      } else {
+        // In development, write to local file
+        fs.writeFileSync(backupPath!, JSON.stringify(backupData, null, 2))
+        
+        // Verify backup file was created
+        if (!fs.existsSync(backupPath!)) {
+          throw new Error('Backup file was not created')
+        }
+        
+        return {
+          success: true,
+          filePath: backupPath
+        }
       }
     } catch (error) {
       console.error('Error creating database backup:', error)
@@ -154,7 +166,7 @@ export class BackupService {
     }
   }
 
-  async uploadBackupToGoogleDrive(filePath: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
+  async uploadBackupToGoogleDrive(filePath: string | null, backupData?: any): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
       // Check if Google Drive credentials are configured (OAuth or Service Account)
       const hasOAuthCredentials = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -169,8 +181,22 @@ export class BackupService {
       }
 
       const googleDrive = await this.getGoogleDriveService()
-      const fileName = path.basename(filePath)
-      const fileContent = fs.readFileSync(filePath)
+      
+      let fileName: string
+      let fileContent: Buffer
+      
+      if (filePath) {
+        // Local file exists (development)
+        fileName = path.basename(filePath)
+        fileContent = fs.readFileSync(filePath)
+      } else if (backupData) {
+        // Data provided directly (serverless)
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        fileName = `micropos-backup-${timestamp}.json`
+        fileContent = Buffer.from(JSON.stringify(backupData, null, 2), 'utf8')
+      } else {
+        throw new Error('No file path or backup data provided')
+      }
       
       const result = await googleDrive.uploadFile(
         fileName,
@@ -179,8 +205,10 @@ export class BackupService {
       )
 
       if (result.success) {
-        // Clean up local backup file after successful upload
-        fs.unlinkSync(filePath)
+        // Clean up local backup file after successful upload (only if file exists)
+        if (filePath && fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
         return {
           success: true,
           fileId: result.fileId
@@ -218,8 +246,11 @@ export class BackupService {
 
       console.log('Backup created, uploading to Google Drive...')
       
-      // Upload to Google Drive
-      const uploadResult = await this.uploadBackupToGoogleDrive(backupResult.filePath!)
+      // Upload to Google Drive (pass data or file path based on environment)
+      const uploadResult = await this.uploadBackupToGoogleDrive(
+        backupResult.filePath || null, 
+        backupResult.data
+      )
       if (!uploadResult.success) {
         return {
           success: false,
