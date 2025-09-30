@@ -9,9 +9,11 @@ interface SupplierInputPopupProps {
   apiEndpoint: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function SupplierInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate }: SupplierInputPopupProps) {
+export default function SupplierInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate, startTime, endTime }: SupplierInputPopupProps) {
   const [supplierName, setSupplierName] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -26,8 +28,8 @@ export default function SupplierInputPopup({ isVisible, onClose, title, apiEndpo
     try {
       const params = new URLSearchParams({
         supplierName: supplierName.trim(),
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`${apiEndpoint}?${params.toString()}`, { method: 'GET' })

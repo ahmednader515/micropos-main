@@ -8,9 +8,11 @@ interface ExpensesPaymentMethodPopupProps {
   title: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function ExpensesPaymentMethodPopup({ isVisible, onClose, title, startDate, endDate }: ExpensesPaymentMethodPopupProps) {
+export default function ExpensesPaymentMethodPopup({ isVisible, onClose, title, startDate, endDate, startTime, endTime }: ExpensesPaymentMethodPopupProps) {
   const [loading, setLoading] = useState(false)
 
   const generatePDF = async (paymentMethod: string) => {
@@ -18,8 +20,8 @@ export default function ExpensesPaymentMethodPopup({ isVisible, onClose, title, 
     try {
       const params = new URLSearchParams({
         paymentMethod: paymentMethod,
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/expenses/by-payment-method?${params.toString()}`, { method: 'GET' })

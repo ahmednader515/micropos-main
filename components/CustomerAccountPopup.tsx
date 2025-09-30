@@ -7,9 +7,11 @@ interface CustomerAccountPopupProps {
   onClose: () => void
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function CustomerAccountPopup({ isVisible, onClose, startDate, endDate }: CustomerAccountPopupProps) {
+export default function CustomerAccountPopup({ isVisible, onClose, startDate, endDate, startTime, endTime }: CustomerAccountPopupProps) {
   const [customerName, setCustomerName] = useState('')
 
   const generateCustomerAccountPDF = async () => {
@@ -21,8 +23,8 @@ export default function CustomerAccountPopup({ isVisible, onClose, startDate, en
     try {
       const params = new URLSearchParams({
         customerName: customerName.trim(),
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/customers/account?${params.toString()}`, { method: 'GET' })

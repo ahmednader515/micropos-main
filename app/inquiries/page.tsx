@@ -39,6 +39,8 @@ export default function InquiriesPage() {
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
+  const [startTime, setStartTime] = useState('00:00')
+  const [endTime, setEndTime] = useState('23:59')
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showSalesReportsPopup, setShowSalesReportsPopup] = useState(false)
   const [showProfitsReportsPopup, setShowProfitsReportsPopup] = useState(false)
@@ -68,8 +70,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'credit',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
@@ -95,8 +97,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'cancelled',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
@@ -122,8 +124,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'quotes',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
@@ -149,8 +151,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'tax-by-category',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
@@ -176,8 +178,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'tax-by-customer',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/sales?${params.toString()}`, { method: 'GET' })
@@ -202,8 +204,8 @@ export default function InquiriesPage() {
   const generateCustomerBalancesPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/customers/balances?${params.toString()}`, { method: 'GET' })
@@ -228,8 +230,8 @@ export default function InquiriesPage() {
   const generatePaymentMovementPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/customers/payment-movement?${params.toString()}`, { method: 'GET' })
@@ -255,8 +257,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'returned',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
@@ -282,8 +284,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'cancelled',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
@@ -309,8 +311,8 @@ export default function InquiriesPage() {
     try {
       const params = new URLSearchParams({
         type: 'orders',
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/purchases?${params.toString()}`, { method: 'GET' })
@@ -335,8 +337,8 @@ export default function InquiriesPage() {
   const generateSupplierBalancesPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/suppliers/balances?${params.toString()}`, { method: 'GET' })
@@ -361,8 +363,8 @@ export default function InquiriesPage() {
   const generateSupplierPaymentMovementPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/suppliers/payment-movement?${params.toString()}`, { method: 'GET' })
@@ -387,8 +389,8 @@ export default function InquiriesPage() {
   const generateInventoryCountPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/inventory/count?${params.toString()}`, { method: 'GET' })
@@ -413,8 +415,8 @@ export default function InquiriesPage() {
   const generateInventoryByCategoryPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/inventory/by-category?${params.toString()}`, { method: 'GET' })
@@ -439,8 +441,8 @@ export default function InquiriesPage() {
   const generateExpiryReportPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/inventory/expiry?${params.toString()}`, { method: 'GET' })
@@ -465,8 +467,8 @@ export default function InquiriesPage() {
   const generateDamagedProductsPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/inventory/damaged?${params.toString()}`, { method: 'GET' })
@@ -492,8 +494,8 @@ export default function InquiriesPage() {
   const generateCashboxMovementPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/cashbox/movement?${params.toString()}`, { method: 'GET' })
@@ -518,8 +520,8 @@ export default function InquiriesPage() {
   const generateCapitalReportPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/cashbox/capital?${params.toString()}`, { method: 'GET' })
@@ -544,8 +546,8 @@ export default function InquiriesPage() {
   const generateZakatCalculationPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/cashbox/zakat?${params.toString()}`, { method: 'GET' })
@@ -570,8 +572,8 @@ export default function InquiriesPage() {
   const generateTaxDeclarationPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/cashbox/tax-declaration?${params.toString()}`, { method: 'GET' })
@@ -596,8 +598,8 @@ export default function InquiriesPage() {
   const generateTaxDeclarationWithReturnsPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/cashbox/tax-declaration-with-returns?${params.toString()}`, { method: 'GET' })
@@ -623,8 +625,8 @@ export default function InquiriesPage() {
   const generateExpensesReportPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/expenses/report?${params.toString()}`, { method: 'GET' })
@@ -649,8 +651,8 @@ export default function InquiriesPage() {
   const generateExpensesByAccountPDF = async () => {
     try {
       const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/expenses/by-account?${params.toString()}`, { method: 'GET' })
@@ -935,48 +937,70 @@ export default function InquiriesPage() {
     <MainLayout navbarTitle="الاستعلامات" onBack={() => (window.location.href = '/')} menuOptions={[]} removeTopPadding={true}>
       <div className="-mx-4">
 
-        {/* Date Selector */}
-        <div className="sticky top-0 z-10 bg-white p-3 shadow-sm border-b border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">فترة التقرير</h3>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <span className="text-xs font-medium text-gray-700 whitespace-nowrap">من</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 rounded border border-gray-300 px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent [&::-webkit-calendar-picker-indicator]:hidden"
-                style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-              />
-        </div>
-            <div className="flex-shrink-0">
-              <span className="text-xs font-medium text-gray-700">إلى</span>
-                </div>
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 rounded border border-gray-300 px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent [&::-webkit-calendar-picker-indicator]:hidden"
-                style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-              />
+        {/* Date and Time Selector */}
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+          <h3 className="text-xs font-semibold text-gray-900 mb-2">اختيار الفترة الزمنية</h3>
+          
+          <div className="space-y-3">
+            {/* Date Selection */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">من تاريخ</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            {/* Time Selection */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">من وقت</label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">إلى وقت</label>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
             </div>
           </div>
+        </div>
 
         {/* Inquiry Sections */}
-        <div className="space-y-0">
+        <div className="space-y-4">
           {inquirySections.map((section) => (
-            <div key={section.id} className="bg-white shadow-sm border-b border-gray-200">
-              <div className="px-4 border-b border-gray-200 bg-gray-50">
-                <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
-                </div>
+            <div key={section.id} className="bg-white rounded-lg shadow-sm">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                <h3 className="text-base font-semibold text-gray-900">{section.title}</h3>
+              </div>
               <div className="divide-y divide-gray-200">
                 {section.items.map((item) => (
                   <button
                     key={item.id}
                     onClick={item.onClick}
-                    className="w-full px-4 py-4 text-right hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors duration-200 flex items-center justify-between group"
+                    className="w-full px-4 py-3 text-right hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors duration-200 flex items-center justify-between group"
                   >
                     <div className="flex items-center space-x-3 space-x-reverse">
                       <svg 
@@ -987,14 +1011,14 @@ export default function InquiriesPage() {
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-gray-900 group-hover:text-gray-700">{item.title}</span>
-                </div>
+                      <span className="text-sm text-gray-900 group-hover:text-gray-700">{item.title}</span>
+                    </div>
                   </button>
                 ))}
-                </div>
               </div>
+            </div>
           ))}
-              </div>
+        </div>
       </div>
 
       {notification && (
@@ -1012,6 +1036,8 @@ export default function InquiriesPage() {
         onReportSelect={() => {}}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <ProfitsReportsPopup
@@ -1020,6 +1046,8 @@ export default function InquiriesPage() {
         onReportSelect={() => {}}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <DiscountsReportsPopup
@@ -1028,6 +1056,8 @@ export default function InquiriesPage() {
         onReportSelect={() => {}}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <CustomerAccountPopup
@@ -1035,6 +1065,8 @@ export default function InquiriesPage() {
         onClose={() => setShowCustomerAccountPopup(false)}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <CustomerInputPopup
@@ -1047,6 +1079,8 @@ export default function InquiriesPage() {
         apiEndpoint={currentCustomerPopup?.apiEndpoint || ''}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <PaymentMethodPopup
@@ -1055,6 +1089,8 @@ export default function InquiriesPage() {
         title="تقرير بحركة السداد للعملاء حسب طريقة الدفع"
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <PurchasesReportsPopup
@@ -1063,6 +1099,8 @@ export default function InquiriesPage() {
         onReportSelect={() => {}}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <SupplierAccountPopup
@@ -1070,6 +1108,8 @@ export default function InquiriesPage() {
         onClose={() => setShowSupplierAccountPopup(false)}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <SupplierInputPopup
@@ -1082,6 +1122,8 @@ export default function InquiriesPage() {
         apiEndpoint={currentSupplierPopup?.apiEndpoint || ''}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <SupplierPaymentMethodPopup
@@ -1090,6 +1132,8 @@ export default function InquiriesPage() {
         title="تقرير بحركة السداد للموردين حسب طريقة الدفع"
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <InventoryCategoryInputPopup
@@ -1102,6 +1146,8 @@ export default function InquiriesPage() {
         apiEndpoint={currentInventoryPopup?.apiEndpoint || ''}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <ProductMovementInputPopup
@@ -1114,6 +1160,8 @@ export default function InquiriesPage() {
         apiEndpoint={currentInventoryPopup?.apiEndpoint || ''}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <ExpensesAccountInputPopup
@@ -1126,6 +1174,8 @@ export default function InquiriesPage() {
         apiEndpoint={currentExpensesPopup?.apiEndpoint || ''}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
 
       <ExpensesPaymentMethodPopup
@@ -1134,6 +1184,8 @@ export default function InquiriesPage() {
         title="تقرير بالمصروفات حسب طريقة الدفع"
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
       />
     </MainLayout>
   )

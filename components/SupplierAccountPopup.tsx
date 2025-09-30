@@ -7,9 +7,11 @@ interface SupplierAccountPopupProps {
   onClose: () => void
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function SupplierAccountPopup({ isVisible, onClose, startDate, endDate }: SupplierAccountPopupProps) {
+export default function SupplierAccountPopup({ isVisible, onClose, startDate, endDate, startTime, endTime }: SupplierAccountPopupProps) {
   const [supplierName, setSupplierName] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -24,8 +26,8 @@ export default function SupplierAccountPopup({ isVisible, onClose, startDate, en
     try {
       const params = new URLSearchParams({
         supplierName: supplierName.trim(),
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/suppliers/account?${params.toString()}`, { method: 'GET' })

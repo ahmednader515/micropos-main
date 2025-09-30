@@ -19,9 +19,11 @@ interface PurchasesReportsPopupProps {
   onReportSelect: (reportType: string, additionalData?: any) => void
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function PurchasesReportsPopup({ isVisible, onClose, onReportSelect, startDate, endDate }: PurchasesReportsPopupProps) {
+export default function PurchasesReportsPopup({ isVisible, onClose, onReportSelect, startDate, endDate, startTime, endTime }: PurchasesReportsPopupProps) {
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showSupplierPopup, setShowSupplierPopup] = useState(false)
   const [showCategoryInputPopup, setShowCategoryInputPopup] = useState(false)
@@ -83,8 +85,8 @@ export default function PurchasesReportsPopup({ isVisible, onClose, onReportSele
     try {
       const params = new URLSearchParams({
         type: reportType,
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       if (additionalData?.category?.id) {

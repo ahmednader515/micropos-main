@@ -9,9 +9,11 @@ interface CustomerInputPopupProps {
   apiEndpoint: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function CustomerInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate }: CustomerInputPopupProps) {
+export default function CustomerInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate, startTime, endTime }: CustomerInputPopupProps) {
   const [customerName, setCustomerName] = useState('')
 
   const generatePDF = async () => {
@@ -23,8 +25,8 @@ export default function CustomerInputPopup({ isVisible, onClose, title, apiEndpo
     try {
       const params = new URLSearchParams({
         customerName: customerName.trim(),
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`${apiEndpoint}?${params.toString()}`, { method: 'GET' })

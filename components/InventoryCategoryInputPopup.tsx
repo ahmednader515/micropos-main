@@ -9,9 +9,11 @@ interface InventoryCategoryInputPopupProps {
   apiEndpoint: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function InventoryCategoryInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate }: InventoryCategoryInputPopupProps) {
+export default function InventoryCategoryInputPopup({ isVisible, onClose, title, apiEndpoint, startDate, endDate, startTime, endTime }: InventoryCategoryInputPopupProps) {
   const [categoryName, setCategoryName] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -26,8 +28,8 @@ export default function InventoryCategoryInputPopup({ isVisible, onClose, title,
     try {
       const params = new URLSearchParams({
         categoryName: categoryName.trim(),
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`${apiEndpoint}?${params.toString()}`, { method: 'GET' })

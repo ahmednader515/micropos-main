@@ -8,9 +8,11 @@ interface PaymentMethodPopupProps {
   title: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
 }
 
-export default function PaymentMethodPopup({ isVisible, onClose, title, startDate, endDate }: PaymentMethodPopupProps) {
+export default function PaymentMethodPopup({ isVisible, onClose, title, startDate, endDate, startTime, endTime }: PaymentMethodPopupProps) {
   const [selectedMethod, setSelectedMethod] = useState('')
 
   const paymentMethods = [
@@ -23,8 +25,8 @@ export default function PaymentMethodPopup({ isVisible, onClose, title, startDat
     try {
       const params = new URLSearchParams({
         paymentMethod: methodValue,
-        startDate: startDate,
-        endDate: endDate
+        startDate: `${startDate}T${startTime}:00.000Z`,
+        endDate: `${endDate}T${endTime}:59.999Z`
       })
       
       const res = await fetch(`/api/reports/customers/payment-movement?${params.toString()}`, { method: 'GET' })
