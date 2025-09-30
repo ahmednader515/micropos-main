@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Noto_Sans_Arabic } from 'next/font/google'
 import './globals.css'
 import SessionProvider from '@/components/SessionProvider'
+import BackupInitializer from '@/components/BackupInitializer'
 
 const notoSansArabic = Noto_Sans_Arabic({ 
   subsets: ['arabic', 'latin'], 
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={notoSansArabic.className}>
         <SessionProvider>
+          <BackupInitializer />
           {children}
         </SessionProvider>
       </body>

@@ -30,6 +30,7 @@ const backup = [
 export default function Sidebar({ onClose }: SidebarProps) {
   const [showEditSalesInvoicePopup, setShowEditSalesInvoicePopup] = useState(false)
   const [showEditPurchaseInvoicePopup, setShowEditPurchaseInvoicePopup] = useState(false)
+  const [isBackingUp, setIsBackingUp] = useState(false)
   const { data: session } = useSession()
 
   const handleAdvancedItemClick = (item: string) => {
@@ -79,11 +80,31 @@ export default function Sidebar({ onClose }: SidebarProps) {
     }
   }
 
-  const handleBackupItemClick = (item: string) => {
+  const handleBackupItemClick = async (item: string) => {
     if (item === 'النسخ الاحتياطي للبيانات') {
-      // Navigate to settings page for backup functionality
-      onClose?.()
-      window.location.href = '/settings?action=backup'
+      setIsBackingUp(true)
+      try {
+        const response = await fetch('/api/backup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        const result = await response.json()
+        
+        if (result.success) {
+          alert(result.message || 'تم إنشاء النسخة الاحتياطية بنجاح')
+        } else {
+          alert(`فشل في إنشاء النسخة الاحتياطية: ${result.error}`)
+        }
+      } catch (error) {
+        console.error('Backup error:', error)
+        alert('حدث خطأ أثناء إنشاء النسخة الاحتياطية')
+      } finally {
+        setIsBackingUp(false)
+        onClose?.()
+      }
     }
   }
 
@@ -130,9 +151,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
               <li 
                 key={idx} 
                 onClick={() => handleBackupItemClick(item)}
-                className="cursor-pointer rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition"
+                className={`cursor-pointer rounded bg-gray-100 text-gray-800 px-3 py-2 text-sm border border-transparent hover:bg-gray-200 transition ${
+                  isBackingUp ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
-                {item}
+                {isBackingUp ? 'جاري إنشاء النسخة الاحتياطية...' : item}
               </li>
             ))}
           </ul>
