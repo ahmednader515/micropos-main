@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -102,6 +104,11 @@ export async function GET(request: NextRequest) {
 // POST /api/purchases - Create new purchase
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { supplierId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes } = body
 
@@ -165,6 +172,7 @@ export async function POST(request: NextRequest) {
       data: {
         invoiceNumber,
         supplierId: supplierId || null,
+        userId: session.user.id,
         totalAmount: parseFloat(totalAmount),
         paidAmount: parseFloat(paidAmount) || 0,
         discount: parseFloat(discount) || 0,

@@ -11,16 +11,68 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// User model for authentication (future use)
+// User model for authentication
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  phone     String   @unique
+  password  String
   name      String?
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // NextAuth relations
+  accounts  Account[]
+  sessions  Session[]
+
+  // Business relations
+  sales     Sale[]
+  purchases Purchase[]
+  expenses  Expense[]
+  cashboxTransactions CashboxTransaction[]
+  payments  Payment[]
+
   @@map("users")
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 // Product categories with hierarchical support
@@ -137,6 +189,8 @@ model Sale {
   invoiceNumber String        @unique
   customerId    String?
   customer      Customer?     @relation(fields: [customerId], references: [id])
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
   totalAmount   Decimal       @db.Decimal(10, 2)
   paidAmount    Decimal       @db.Decimal(10, 2) @default(0)
   discount      Decimal       @db.Decimal(10, 2) @default(0)
@@ -174,6 +228,8 @@ model Purchase {
   invoiceNumber String        @unique
   supplierId    String?
   supplier      Supplier?     @relation(fields: [supplierId], references: [id])
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
   totalAmount   Decimal       @db.Decimal(10, 2)
   paidAmount    Decimal       @db.Decimal(10, 2) @default(0)
   discount      Decimal       @db.Decimal(10, 2) @default(0)
@@ -215,6 +271,8 @@ model Expense {
   date        DateTime      @default(now())
   paymentMethod PaymentMethod @default(CASH)
   receiptUrl  String?       // URL for receipt image/file
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -229,6 +287,8 @@ model CashboxTransaction {
   description String?
   reference   String? // Reference to sale, purchase, expense, etc.
   paymentMethod PaymentMethod @default(CASH)
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
   createdAt   DateTime      @default(now())
 
   @@map("cashbox_transactions")
@@ -241,6 +301,8 @@ model Payment {
   customer      Customer?     @relation(fields: [customerId], references: [id])
   supplierId    String?
   supplier      Supplier?     @relation(fields: [supplierId], references: [id])
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
   amount        Decimal       @db.Decimal(10, 2)
   type          PaymentType
   paymentMethod PaymentMethod @default(CASH)

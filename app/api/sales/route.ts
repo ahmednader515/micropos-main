@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Normalize incoming payment method values (Arabic/English/variants) to Prisma enum
@@ -46,6 +48,11 @@ function normalizePaymentMethod(input: any): 'CASH' | 'CARD' | 'BANK_TRANSFER' |
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 })
+    }
+
     const body = await request.json()
     const {
       invoiceNumber,
@@ -101,6 +108,7 @@ export async function POST(request: NextRequest) {
         data: {
           invoiceNumber: finalInvoiceNumber,
           customerId: customerId || null,
+          userId: session.user.id,
           totalAmount,
           paidAmount: paidAmount || 0,
           discount: discount || 0,
@@ -180,6 +188,7 @@ export async function POST(request: NextRequest) {
       data: {
         invoiceNumber: generatedInvoiceNumber,
         customerId: customerId || null,
+        userId: session.user.id,
         totalAmount,
         paidAmount: paidAmount || 0,
         discount: discount || 0,

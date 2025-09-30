@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import InvoiceNumberInputPopup from './InvoiceNumberInputPopup'
 
 interface SidebarProps {
@@ -29,6 +30,7 @@ const backup = [
 export default function Sidebar({ onClose }: SidebarProps) {
   const [showEditSalesInvoicePopup, setShowEditSalesInvoicePopup] = useState(false)
   const [showEditPurchaseInvoicePopup, setShowEditPurchaseInvoicePopup] = useState(false)
+  const { data: session } = useSession()
 
   const handleAdvancedItemClick = (item: string) => {
     if (item === 'تعديل فاتورة مبيعات') {
@@ -137,13 +139,25 @@ export default function Sidebar({ onClose }: SidebarProps) {
         </div>
       </div>
       <div className="border-t border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-gray-300"></div>
+        <div className="flex items-center mb-3">
+          <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
+            <span className="text-sm font-medium text-gray-600">
+              {session?.user?.name?.charAt(0) || 'U'}
+            </span>
+          </div>
           <div className="mr-3">
-            <p className="text-sm font-medium text-gray-900">مشرف النظام</p>
-            <p className="text-xs text-gray-500">admin@micropos.com</p>
+            <p className="text-sm font-medium text-gray-900">
+              {session?.user?.name || 'المستخدم'}
+            </p>
+            <p className="text-xs text-gray-500">{session?.user?.phone}</p>
           </div>
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+          className="w-full text-left text-sm text-red-600 hover:text-red-800 transition-colors"
+        >
+          تسجيل الخروج
+        </button>
     </div>
       {showEditSalesInvoicePopup && (
         <InvoiceNumberInputPopup

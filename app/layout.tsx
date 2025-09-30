@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Noto_Sans_Arabic } from 'next/font/google'
 import './globals.css'
+import SessionProvider from '@/components/SessionProvider'
 
 const notoSansArabic = Noto_Sans_Arabic({ 
   subsets: ['arabic', 'latin'], 
@@ -25,7 +26,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={notoSansArabic.className}>{children}</body>
+      <body className={notoSansArabic.className}>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
+      </body>
     </html>
   )
 } 

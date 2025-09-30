@@ -3,6 +3,8 @@
 import MainLayout from '@/components/MainLayout'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import ConfirmNavigationPopup from '@/components/ConfirmNavigationPopup'
 
 const homeButtons = [
@@ -18,6 +20,14 @@ const homeButtons = [
 
 export default function Home() {
   const [showExitConfirm, setShowExitConfirm] = useState(false)
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
 
   useEffect(() => {
     try { window.history.pushState({ exitApp: true }, '') } catch {}
@@ -29,6 +39,20 @@ export default function Home() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
+
+  if (status === 'loading') {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-gray-500">جاري التحميل...</div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (status === 'unauthenticated') {
+    return null
+  }
 
   return (
     <MainLayout>
