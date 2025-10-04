@@ -145,20 +145,24 @@ export async function GET(request: NextRequest) {
     
     // Calculate totals by payment method
     const cashTotal = invoices
-      .filter(invoice => invoice.paymentMethod === 'CASH')
-      .reduce((sum, invoice) => sum + Number(invoice.totalAmount), 0)
-    
-    const creditTotal = invoices
-      .filter(invoice => invoice.paymentMethod === 'CREDIT')
-      .reduce((sum, invoice) => sum + Number(invoice.totalAmount), 0)
+      .filter((invoice: Sale) => invoice.paymentMethod === 'CASH')
+      .reduce((sum: number, invoice: Sale) => sum + Number(invoice.totalAmount), 0)
     
     const cardTotal = invoices
-      .filter(invoice => invoice.paymentMethod === 'CARD')
-      .reduce((sum, invoice) => sum + Number(invoice.totalAmount), 0)
+      .filter((invoice: Sale) => invoice.paymentMethod === 'CARD')
+      .reduce((sum: number, invoice: Sale) => sum + Number(invoice.totalAmount), 0)
+    
+    const bankTransferTotal = invoices
+      .filter((invoice: Sale) => invoice.paymentMethod === 'BANK_TRANSFER')
+      .reduce((sum: number, invoice: Sale) => sum + Number(invoice.totalAmount), 0)
     
     const checkTotal = invoices
-      .filter(invoice => invoice.paymentMethod === 'CHECK')
-      .reduce((sum, invoice) => sum + Number(invoice.totalAmount), 0)
+      .filter((invoice: Sale) => invoice.paymentMethod === 'CHECK')
+      .reduce((sum: number, invoice: Sale) => sum + Number(invoice.totalAmount), 0)
+    
+    const mobilePaymentTotal = invoices
+      .filter((invoice: Sale) => invoice.paymentMethod === 'MOBILE_PAYMENT')
+      .reduce((sum: number, invoice: Sale) => sum + Number(invoice.totalAmount), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
@@ -182,11 +186,13 @@ export async function GET(request: NextRequest) {
     doc.setFont('Amiri', 'normal')
     doc.text(`النقد: ${cashTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`الاجل: ${creditTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
-    currentY += 8
     doc.text(`البطاقة: ${cardTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 8
+    doc.text(`التحويل البنكي: ${bankTransferTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
+    currentY += 8
     doc.text(`الشيك: ${checkTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
+    currentY += 8
+    doc.text(`المحفظة: ${mobilePaymentTotal.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 15
     
     // Generate PDF buffer
