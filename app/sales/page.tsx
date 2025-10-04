@@ -362,7 +362,7 @@ export default function SalesPage() {
             }
           }
         }}
-        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+        className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
           selectedCategory === category.id
             ? 'bg-green-100 border-2 border-green-300 text-green-800'
             : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -401,7 +401,7 @@ export default function SalesPage() {
               setSelectedCategory(category.id)
             }
           }}
-          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+          className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
             selectedCategory === category.id
               ? 'bg-green-100 border-2 border-green-300 text-green-800'
               : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -1569,12 +1569,12 @@ export default function SalesPage() {
               {/* Products Grid - Always scrollable with proper height constraints */}
               <div className={`overflow-y-auto min-h-0 ${showCategoryView ? 'h-1/2' : 'h-full'}`}>
                 <div className="p-4">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-2">
                     {getFilteredProducts().map(product => (
                       <button
                         key={product.id}
                         onClick={() => addProductToSale(product)}
-                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                        className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
                           product.color 
                             ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
                             : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
@@ -1597,14 +1597,14 @@ export default function SalesPage() {
               {showCategoryView && (
                 <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 h-1/2 overflow-y-auto">
                   <div className="p-4">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-2">
                       {!selectedParentCategory && (
                         <button
                           onClick={() => {
                             setSelectedCategory(null)
                             setSelectedParentCategory(null)
                           }}
-                          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                          className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
                             selectedCategory === null && selectedParentCategory === null
                               ? 'bg-green-100 border-2 border-green-300 text-green-800'
                               : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -1620,7 +1620,7 @@ export default function SalesPage() {
                           {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
                           <button
                             onClick={() => setSelectedParentCategory(null)}
-                            className="p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
+                            className="p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
                           >
                             <div className="font-medium text-gray-900 text-xs leading-tight">← العودة</div>
                           </button>
@@ -1784,7 +1784,7 @@ export default function SalesPage() {
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Products Grid */}
                 <div className="flex-1 p-4 overflow-y-auto">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-2">
                     {getFilteredProducts().map(product => (
                       <button
                         key={product.id}
@@ -1794,7 +1794,7 @@ export default function SalesPage() {
                           setSelectedCategory(null)
                           setShowCategoryView(false)
                         }}
-                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                        className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
                           product.color 
                             ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
                             : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
@@ -1835,7 +1835,7 @@ export default function SalesPage() {
                       <div className="space-y-3">
                         <button
                           onClick={() => setSelectedCategory(null)}
-                          className={`w-full p-3 rounded-lg text-center transition-all duration-200 ${
+                          className={`w-full p-2 rounded-lg text-center transition-all duration-200 ${
                             selectedCategory === null
                               ? 'bg-green-100 border-2 border-green-300 text-green-800 shadow-sm'
                               : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 hover:shadow-sm'
