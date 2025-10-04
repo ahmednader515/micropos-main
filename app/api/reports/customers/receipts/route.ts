@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { Sale, Payment } from '@prisma/client'
+import { Payment } from '@prisma/client'
 import { parseDateRange, sanitizeFilename } from '@/lib/dateUtils'
 
 export const revalidate = 0
@@ -48,37 +48,6 @@ export async function GET(request: NextRequest) {
           contains: customerName,
           mode: 'insensitive'
         }
-      },
-      include: {
-        sales: {
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end
-            }
-          },
-          include: {
-            items: {
-              include: {
-                product: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        payments: {
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
       }
     })
 
@@ -90,7 +59,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get receipts separately (since there's no direct relation)
+    // Get customer receipts (payments with type RECEIVE) for the date range
     const receipts = await prisma.payment.findMany({
       where: {
         customerId: customer.id,
@@ -141,7 +110,7 @@ export async function GET(request: NextRequest) {
     // Header
     doc.setFontSize(24)
     doc.setFont('Amiri', 'bold')
-    doc.text('كشف حساب عميل', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
+    doc.text('تقرير بسندات القبض لعميل', pageWidth / 2, margin + 10, { align: 'center', isInputRtl: true })
     
     // Add line below header
     doc.setLineWidth(0.5)
@@ -165,161 +134,65 @@ export async function GET(request: NextRequest) {
     let currentY = margin + 55
     
     // Calculate totals
-    const totalSales = customer.sales.reduce((sum: number, sale: Sale & { items: any[] }) => sum + Number(sale.totalAmount), 0)
-    const totalReceipts = receipts.reduce((sum: number, receipt: Payment) => sum + Number(receipt.amount), 0)
-    const totalPayments = customer.payments.reduce((sum: number, payment: Payment) => sum + Number(payment.amount), 0)
-    const currentBalance = totalSales - totalReceipts - totalPayments
+    const totalReceipts = receipts.length
+    const totalAmount = receipts.reduce((sum: number, receipt: Payment) => sum + Number(receipt.amount), 0)
     
     doc.setFontSize(14)
     doc.setFont('Amiri', 'bold')
-    doc.text('ملخص الحساب', margin, currentY, { isInputRtl: true })
+    doc.text('ملخص التقرير', margin, currentY, { isInputRtl: true })
     currentY += 10
     
     doc.setFontSize(12)
     doc.setFont('Amiri', 'normal')
-    doc.text(`إجمالي المبيعات: ${totalSales.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
+    doc.text(`عدد سندات القبض: ${totalReceipts}`, margin, currentY, { isInputRtl: true })
     currentY += 8
-    doc.text(`إجمالي المقبوضات: ${totalReceipts.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
-    currentY += 8
-    doc.text(`إجمالي المدفوعات: ${totalPayments.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
-    currentY += 8
-    
-    // Color code the balance
-    if (currentBalance > 0) {
-      doc.setTextColor(255, 0, 0) // Red for positive balance (debt)
-    } else if (currentBalance < 0) {
-      doc.setTextColor(0, 128, 0) // Green for negative balance (credit)
-    }
-    doc.text(`الرصيد الحالي: ${currentBalance.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
-    doc.setTextColor(0, 0, 0) // Reset to black
+    doc.text(`إجمالي المبلغ: ${totalAmount.toFixed(2)} ج.م`, margin, currentY, { isInputRtl: true })
     currentY += 15
     
-    // Sales transactions
-    if (customer.sales.length > 0) {
-      doc.setFontSize(14)
-      doc.setFont('Amiri', 'bold')
-      doc.text('المبيعات', margin, currentY, { isInputRtl: true })
-      currentY += 10
-      
-      // Sales table header
-      doc.setFontSize(10)
-      doc.setFont('Amiri', 'bold')
-      doc.text('التاريخ', margin, currentY, { isInputRtl: true })
-      doc.text('رقم الفاتورة', margin + 30, currentY, { isInputRtl: true })
-      doc.text('المبلغ', margin + 80, currentY, { isInputRtl: true })
-      doc.text('طريقة الدفع', margin + 120, currentY, { isInputRtl: true })
-      
-      // Add line below header
-      doc.setLineWidth(0.3)
-      doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2)
-      currentY += 6
-      
-      // Sales table rows
-      doc.setFontSize(9)
-      doc.setFont('Amiri', 'normal')
-      
-      customer.sales.forEach((sale: Sale & { items: any[] }) => {
-        if (currentY > pageHeight - 30) {
-          doc.addPage()
-          currentY = margin
-        }
-        
-        const paymentMethodNames: { [key: string]: string } = {
-          'CASH': 'نقد',
-          'CREDIT': 'اجل',
-          'CARD': 'بطاقة',
-          'CHECK': 'شيك'
-        }
-        
-        doc.text(sale.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
-        doc.text(sale.invoiceNumber || 'غير محدد', margin + 30, currentY, { isInputRtl: true })
-        doc.text(Number(sale.totalAmount).toFixed(2), margin + 80, currentY, { isInputRtl: true })
-        doc.text(paymentMethodNames[sale.paymentMethod] || sale.paymentMethod, margin + 120, currentY, { isInputRtl: true })
-        
-        currentY += 5
-      })
-      
-      currentY += 10
-    }
-    
-    // Receipts transactions
+    // Receipts table
     if (receipts.length > 0) {
       doc.setFontSize(14)
       doc.setFont('Amiri', 'bold')
-      doc.text('المقبوضات', margin, currentY, { isInputRtl: true })
+      doc.text('تفاصيل سندات القبض', margin, currentY, { isInputRtl: true })
       currentY += 10
       
-      // Receipts table header
+      // Table header
       doc.setFontSize(10)
       doc.setFont('Amiri', 'bold')
       doc.text('التاريخ', margin, currentY, { isInputRtl: true })
       doc.text('رقم السند', margin + 30, currentY, { isInputRtl: true })
       doc.text('المبلغ', margin + 80, currentY, { isInputRtl: true })
       doc.text('المرجع', margin + 120, currentY, { isInputRtl: true })
+      doc.text('الملاحظات', margin + 160, currentY, { isInputRtl: true })
       
       // Add line below header
       doc.setLineWidth(0.3)
       doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2)
       currentY += 6
       
-      // Receipts table rows
+      // Table rows
       doc.setFontSize(9)
       doc.setFont('Amiri', 'normal')
       
       receipts.forEach((receipt: Payment) => {
+        // Check if we need a new page
         if (currentY > pageHeight - 30) {
           doc.addPage()
           currentY = margin
         }
         
         doc.text(receipt.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
-        doc.text(receipt.id, margin + 30, currentY, { isInputRtl: true })
+        doc.text(receipt.id.substring(0, 8), margin + 30, currentY, { isInputRtl: true })
         doc.text(Number(receipt.amount).toFixed(2), margin + 80, currentY, { isInputRtl: true })
         doc.text(receipt.reference || 'غير محدد', margin + 120, currentY, { isInputRtl: true })
+        doc.text(receipt.notes || '-', margin + 160, currentY, { isInputRtl: true })
         
         currentY += 5
       })
-      
-      currentY += 10
-    }
-    
-    // Payments transactions
-    if (customer.payments.length > 0) {
-      doc.setFontSize(14)
-      doc.setFont('Amiri', 'bold')
-      doc.text('المدفوعات', margin, currentY, { isInputRtl: true })
-      currentY += 10
-      
-      // Payments table header
-      doc.setFontSize(10)
-      doc.setFont('Amiri', 'bold')
-      doc.text('التاريخ', margin, currentY, { isInputRtl: true })
-      doc.text('رقم السند', margin + 30, currentY, { isInputRtl: true })
-      doc.text('المبلغ', margin + 80, currentY, { isInputRtl: true })
-      doc.text('المرجع', margin + 120, currentY, { isInputRtl: true })
-      
-      // Add line below header
-      doc.setLineWidth(0.3)
-      doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2)
-      currentY += 6
-      
-      // Payments table rows
-      doc.setFontSize(9)
+    } else {
+      doc.setFontSize(12)
       doc.setFont('Amiri', 'normal')
-      
-      customer.payments.forEach((payment: Payment) => {
-        if (currentY > pageHeight - 30) {
-          doc.addPage()
-          currentY = margin
-        }
-        
-        doc.text(payment.createdAt.toLocaleDateString('ar-SA'), margin, currentY, { isInputRtl: true })
-        doc.text(payment.id, margin + 30, currentY, { isInputRtl: true })
-        doc.text(Number(payment.amount).toFixed(2), margin + 80, currentY, { isInputRtl: true })
-        doc.text(payment.reference || 'غير محدد', margin + 120, currentY, { isInputRtl: true })
-        
-        currentY += 5
-      })
+      doc.text('لا توجد سندات قبض في الفترة المحددة', margin, currentY, { isInputRtl: true })
     }
     
     // Generate PDF buffer
@@ -327,7 +200,7 @@ export async function GET(request: NextRequest) {
     
     // Sanitize filename to handle Arabic characters
     const sanitizedName = sanitizeFilename(customer.name)
-    const filename = `customer_account_${sanitizedName}_${new Date().toISOString().split('T')[0]}.pdf`
+    const filename = `customer_receipts_${sanitizedName}_${new Date().toISOString().split('T')[0]}.pdf`
     
     return new NextResponse(pdfBuffer, {
       status: 200,
@@ -337,7 +210,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error generating customer account report PDF:', error)
+    console.error('Error generating customer receipts report PDF:', error)
     return new NextResponse(JSON.stringify({ 
       error: 'PDF generation failed', 
       details: error instanceof Error ? error.message : 'Unknown error' 

@@ -69,6 +69,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Customer name is required' }, { status: 400 })
     }
 
+    // Validate priceTier if provided
+    const validPriceTiers = ['PRICE1', 'PRICE2', 'PRICE3']
+    if (priceTier && !validPriceTiers.includes(priceTier.toUpperCase())) {
+      return NextResponse.json({ error: 'Invalid price tier. Must be PRICE1, PRICE2, or PRICE3' }, { status: 400 })
+    }
+
     // Check if name already exists for another customer
     const existingByName = await prisma.customer.findFirst({
       where: { 
@@ -115,7 +121,7 @@ export async function PUT(
         cardType: cardType || null,
         cardNumber: cardNumber || null,
         notes: notes || null,
-        priceTier: priceTier || 'PRICE1',
+        priceTier: priceTier ? (priceTier.toUpperCase() as 'PRICE1' | 'PRICE2' | 'PRICE3') : 'PRICE1',
         creditLimit: creditLimit ? Number(creditLimit) : 0,
         dueDays: dueDays ? parseInt(String(dueDays), 10) : 0,
       },

@@ -105,10 +105,9 @@ export async function DELETE(
       )
     }
 
-    // Soft delete by setting isActive to false
-    await prisma.product.update({
-      where: { id },
-      data: { isActive: false }
+    // Actually delete the product from the database
+    await prisma.product.delete({
+      where: { id }
     })
 
     await prisma.$disconnect()

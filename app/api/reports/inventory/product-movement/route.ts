@@ -272,7 +272,9 @@ export async function GET(request: NextRequest) {
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
     
-    const filename = `product_movement_${product.name}_${new Date().toISOString().split('T')[0]}.pdf`
+    // Sanitize filename to handle Arabic characters
+    const sanitizedName = product.name.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_')
+    const filename = `product_movement_${sanitizedName}_${new Date().toISOString().split('T')[0]}.pdf`
     
     return new NextResponse(pdfBuffer, {
       status: 200,

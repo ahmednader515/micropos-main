@@ -743,7 +743,9 @@ export default function PurchasesPage() {
         })
 
         if (!pdfResponse.ok) {
-          throw new Error('فشل في توليد طلب الشراء')
+          const errorData = await pdfResponse.json().catch(() => ({}))
+          console.error('PDF generation failed:', errorData)
+          throw new Error(errorData.error || 'فشل في توليد طلب الشراء')
         }
 
         // Create blob and download

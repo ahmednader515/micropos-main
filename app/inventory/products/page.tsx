@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import MainLayout from '@/components/MainLayout'
 import FlashNotification from '@/components/FlashNotification'
 import BarcodeInput from '@/components/BarcodeInput'
+import ConfirmDeletePopup from '@/components/ConfirmDeletePopup'
 
 interface Product {
   id: string
@@ -38,6 +39,9 @@ export default function InventoryProductsPage() {
   const [updating, setUpdating] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{
     message: string
     type: 'success' | 'error' | 'info'
@@ -162,17 +166,25 @@ export default function InventoryProductsPage() {
     }
   }
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return
+  const handleDeleteProduct = (productId: string) => {
+    setProductToDelete(productId)
+    setShowDeleteConfirm(true)
+  }
 
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return
+
+    setIsDeleting(true)
     try {
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(`/api/products/${productToDelete}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
         showNotification('تم حذف المنتج بنجاح', 'success')
         setShowPopup(false)
+        setShowDeleteConfirm(false)
+        setProductToDelete(null)
         fetchProducts() // Refresh the list
       } else {
         showNotification('فشل في حذف المنتج', 'error')
@@ -180,7 +192,14 @@ export default function InventoryProductsPage() {
     } catch (error) {
       console.error('Error deleting product:', error)
       showNotification('حدث خطأ أثناء حذف المنتج', 'error')
+    } finally {
+      setIsDeleting(false)
     }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false)
+    setProductToDelete(null)
   }
 
   const handleFreezeProduct = async (productId: string) => {
@@ -489,6 +508,18 @@ export default function InventoryProductsPage() {
         </div>
                </div>
        )}
+
+      {/* Delete Confirmation Popup */}
+      <ConfirmDeletePopup
+        isVisible={showDeleteConfirm}
+        onClose={cancelDelete}
+        onConfirm={confirmDeleteProduct}
+        title="حذف المنتج"
+        message="هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmText="حذف المنتج"
+        cancelText="إلغاء"
+        isLoading={isDeleting}
+      />
 
      </>
    )

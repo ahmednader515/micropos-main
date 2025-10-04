@@ -500,6 +500,15 @@ export default function SalesPage() {
     const currentScreenItems = saleItems[screenNumber] || []
     const existingItem = currentScreenItems.find(item => item.productId === product.id)
     
+    // Check stock availability
+    const currentQuantityInSale = existingItem ? existingItem.quantity : 0
+    const requestedQuantity = currentQuantityInSale + 1
+    
+    if (requestedQuantity > product.stock) {
+      showNotification('error', `الكمية المطلوبة (${requestedQuantity}) تتجاوز المخزون المتاح (${product.stock})`)
+      return
+    }
+    
     // Determine which price to use
     let selectedPrice = product.price
     if (isPriceFixed && selectedMenuPrice) {
@@ -1410,7 +1419,10 @@ export default function SalesPage() {
                   >
                     <div className="font-medium">{product.name}</div>
                     <div className="text-sm text-gray-500">
-                      السعر: {formatCurrency(product.price)} | {formatCurrency(product.price2)} | {formatCurrency(product.price3)} | المخزون: {product.stock}
+                      السعر: {formatCurrency(product.price)} | {formatCurrency(product.price2)} | {formatCurrency(product.price3)} | 
+                      <span className={product.stock <= 5 ? 'text-red-600 font-semibold' : 'text-gray-500'}>
+                        المخزون: {product.stock}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -1890,6 +1902,12 @@ export default function SalesPage() {
                         } else {
                           const numValue = parseInt(value)
                           if (!isNaN(numValue) && numValue >= 1) {
+                            // Check stock availability
+                            const product = products.find(p => p.id === selectedProductForDetails?.productId)
+                            if (product && numValue > product.stock) {
+                              showNotification('error', `الكمية المطلوبة (${numValue}) تتجاوز المخزون المتاح (${product.stock})`)
+                              return
+                            }
                             setProductDetailsForm(prev => ({ ...prev, quantity: numValue }))
                           }
                         }
@@ -1924,8 +1942,15 @@ export default function SalesPage() {
                 {/* Available Stock */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الكمية المتوفرة</label>
-                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs sm:text-sm">
+                  <div className={`px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm ${
+                    (products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0) <= 5 
+                      ? 'bg-red-50 border-red-300 text-red-700 font-semibold' 
+                      : 'bg-gray-50'
+                  }`}>
                     {products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0} قطعة
+                    {(products.find(p => p.id === selectedProductForDetails.productId)?.stock || 0) <= 5 && (
+                      <span className="block text-xs text-red-600 mt-1">⚠️ مخزون منخفض</span>
+                    )}
                   </div>
                 </div>
 

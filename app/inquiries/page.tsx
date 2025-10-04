@@ -926,6 +926,28 @@ export default function InquiriesPage() {
     }
   ]
 
+  // Load saved date/time from localStorage on component mount
+  useEffect(() => {
+    const savedStartDate = localStorage.getItem('inquiries_startDate')
+    const savedEndDate = localStorage.getItem('inquiries_endDate')
+    const savedStartTime = localStorage.getItem('inquiries_startTime')
+    const savedEndTime = localStorage.getItem('inquiries_endTime')
+
+    if (savedStartDate) setStartDate(savedStartDate)
+    if (savedEndDate) setEndDate(savedEndDate)
+    if (savedStartTime) setStartTime(savedStartTime)
+    if (savedEndTime) setEndTime(savedEndTime)
+  }, [])
+
+  // Save date/time to localStorage
+  const saveDateTimeSettings = () => {
+    localStorage.setItem('inquiries_startDate', startDate)
+    localStorage.setItem('inquiries_endDate', endDate)
+    localStorage.setItem('inquiries_startTime', startTime)
+    localStorage.setItem('inquiries_endTime', endTime)
+    showNotification('success', 'تم حفظ إعدادات التاريخ والوقت')
+  }
+
   useEffect(() => {
     try { window.history.pushState({ backToHome: true }, '') } catch {}
     const onPop = () => { window.location.assign('/') }
@@ -984,6 +1006,16 @@ export default function InquiriesPage() {
                   className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+            </div>
+            
+            {/* Save Button */}
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={saveDateTimeSettings}
+                className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+              >
+                حفظ التاريخ والوقت
+              </button>
             </div>
           </div>
         </div>

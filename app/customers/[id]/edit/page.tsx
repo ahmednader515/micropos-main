@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
+import FlashNotification from '@/components/FlashNotification'
 
 type PriceTier = 'price1' | 'price2' | 'price3'
 
@@ -53,6 +54,15 @@ export default function EditCustomerPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info'
+    message: string
+    isVisible: boolean
+  }>({
+    type: 'info',
+    message: '',
+    isVisible: false
+  })
 
   const priceTierOptions: { value: PriceTier; label: string }[] = [
     { value: 'price1', label: 'السعر 1' },
@@ -110,10 +120,14 @@ export default function EditCustomerPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ type, message, isVisible: true })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      alert('اسم العميل مطلوب')
+      showNotification('error', 'اسم العميل مطلوب')
       return
     }
     
@@ -144,11 +158,13 @@ export default function EditCustomerPage() {
       })
       
       if (res.ok) {
-        alert('تم تحديث العميل بنجاح')
-        router.push('/customers')
+        showNotification('success', 'تم تحديث العميل بنجاح')
+        setTimeout(() => {
+          router.push('/customers')
+        }, 1500)
       } else {
         const err = await res.json().catch(() => ({}))
-        alert(err.error || 'حدث خطأ أثناء تحديث العميل')
+        showNotification('error', err.error || 'حدث خطأ أثناء تحديث العميل')
       }
     } finally {
       setSaving(false)
@@ -393,6 +409,16 @@ export default function EditCustomerPage() {
           </div>
         </div>
       </form>
+      
+      {/* Flash Notification */}
+      {notification.isVisible && (
+        <FlashNotification
+          type={notification.type}
+          message={notification.message}
+          isVisible={notification.isVisible}
+          onClose={() => setNotification(prev => ({ ...prev, isVisible: false }))}
+        />
+      )}
     </MainLayout>
   )
 }

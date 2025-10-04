@@ -74,6 +74,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate stock availability for all items
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId }
+      })
+      
+      if (!product) {
+        return NextResponse.json(
+          { error: `المنتج غير موجود: ${item.productId}` },
+          { status: 400 }
+        )
+      }
+      
+      if (product.stock < item.quantity) {
+        return NextResponse.json(
+          { error: `الكمية المطلوبة (${item.quantity}) تتجاوز المخزون المتاح (${product.stock}) للمنتج: ${product.name}` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Generate invoice number based on database count
     const invoiceCount = await prisma.sale.count()
     const generatedInvoiceNumber = invoiceNumber || String(invoiceCount + 1)

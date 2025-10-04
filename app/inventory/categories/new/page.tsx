@@ -8,11 +8,6 @@ interface Category {
   id: string
   name: string
   description: string | null
-  parentId: string | null
-  level: number
-  path: string | null
-  children?: Category[]
-  productCount?: number
 }
 
 interface Notification {
@@ -22,16 +17,15 @@ interface Notification {
 
 export default function NewCategoryPage() {
   const [name, setName] = useState('')
+  const [editName, setEditName] = useState('')
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [parentCategoryId, setParentCategoryId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteChecked, setDeleteChecked] = useState(false)
   const [notification, setNotification] = useState<Notification | null>(null)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message })
@@ -40,7 +34,7 @@ export default function NewCategoryPage() {
   const fetchCategories = async () => {
     try {
       setCategoriesLoading(true)
-      const res = await fetch('/api/categories/hierarchy')
+      const res = await fetch('/api/categories')
       if (res.ok) {
         const data = await res.json()
         setCategories(data.categories || [])
@@ -62,7 +56,7 @@ export default function NewCategoryPage() {
 
   const handleEditCategory = (category: Category) => {
     setSelectedCategory(category)
-    setName(category.name)
+    setEditName(category.name)
     setDeleteChecked(false)
     setShowEditModal(true)
   }
@@ -81,15 +75,13 @@ export default function NewCategoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          description: null,
-          parentId: parentCategoryId
+          description: null
         }),
       })
 
       if (res.ok) {
         showNotification('success', 'تم إنشاء التصنيف')
         setName('')
-        setParentCategoryId(null)
         fetchCategories()
       } else {
         const err = await res.json()
@@ -103,7 +95,7 @@ export default function NewCategoryPage() {
   }
 
   const submitEditCategory = async () => {
-    if (!selectedCategory || !name.trim()) {
+    if (!selectedCategory || !editName.trim()) {
       showNotification('error', 'اسم التصنيف مطلوب')
       return
     }
@@ -114,7 +106,7 @@ export default function NewCategoryPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: editName.trim(),
           description: null
         }),
       })
@@ -160,64 +152,6 @@ export default function NewCategoryPage() {
     }
   }
 
-  const toggleExpanded = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories)
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId)
-    } else {
-      newExpanded.add(categoryId)
-    }
-    setExpandedCategories(newExpanded)
-  }
-
-  const renderCategoryOptions = (categories: Category[], level = 0) => {
-    return categories.map((category) => (
-      <React.Fragment key={category.id}>
-        <option value={category.id}>
-          {'  '.repeat(level * 2)} {category.name}
-        </option>
-        {category.children && category.children.length > 0 && renderCategoryOptions(category.children, level + 1)}
-      </React.Fragment>
-    ))
-  }
-
-  const renderCategoryTree = (categories: Category[], level = 0) => {
-    return categories.map((category) => (
-      <div key={category.id} className="ml-4">
-        <div className={`flex items-center justify-between p-3 bg-white border rounded-lg mb-2 cursor-pointer hover:bg-gray-50 transition-colors ${level > 0 ? 'border-l-4 border-l-blue-400' : ''}`}
-             onClick={() => handleEditCategory(category)}>
-          <div className="flex items-center space-x-2 space-x-reverse">
-            {category.children && category.children.length > 0 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleExpanded(category.id)
-                }}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${expandedCategories.has(category.id) ? 'rotate-90' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            )}
-            <div className="font-medium text-gray-900">
-              {category.name}
-            </div>
-          </div>
-        </div>
-        {category.children && category.children.length > 0 && expandedCategories.has(category.id) && (
-          <div className="ml-4">
-            {renderCategoryTree(category.children, level + 1)}
-          </div>
-        )}
-      </div>
-    ))
-  }
 
   return (
     <MainLayout 
@@ -244,17 +178,6 @@ export default function NewCategoryPage() {
               required 
             />
           </div>
-          <div>
-            <label className="block text-sm mb-1">التصنيف الأب (اختياري)</label>
-            <select 
-              value={parentCategoryId || ''} 
-              onChange={(e) => setParentCategoryId(e.target.value || null)} 
-              className="w-full border rounded px-3 py-2"
-            >
-              <option value="">تصنيف رئيسي</option>
-              {renderCategoryOptions(categories)}
-            </select>
-          </div>
         </form>
       </div>
 
@@ -267,7 +190,14 @@ export default function NewCategoryPage() {
           <div className="text-center py-4 text-gray-500">لا توجد تصنيفات</div>
         ) : (
           <div className="space-y-2">
-            {renderCategoryTree(categories)}
+            {categories.map((category) => (
+              <div key={category.id} className="flex items-center justify-between p-3 bg-white border rounded-lg mb-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                   onClick={() => handleEditCategory(category)}>
+                <div className="font-medium text-gray-900">
+                  {category.name}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -285,8 +215,8 @@ export default function NewCategoryPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">اسم التصنيف *</label>
                   <input
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -309,6 +239,7 @@ export default function NewCategoryPage() {
                   onClick={() => {
                     setShowEditModal(false)
                     setSelectedCategory(null)
+                    setEditName('')
                     setDeleteChecked(false)
                   }}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"

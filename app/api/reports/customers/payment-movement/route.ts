@@ -4,6 +4,7 @@ import jsPDF from 'jspdf'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { Sale, Payment } from '@prisma/client'
+import { parseDateRange } from '@/lib/dateUtils'
 
 export const revalidate = 0
 
@@ -14,10 +15,22 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    // Set default date range if not provided
-    const today = new Date()
-    const start = startDate ? new Date(startDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const end = endDate ? new Date(endDate + 'T23:59:59.999Z') : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+    // Parse and validate date range
+    let start: Date, end: Date
+    try {
+      const dateRange = parseDateRange(startDate, endDate)
+      start = dateRange.start
+      end = dateRange.end
+    } catch (error) {
+      return new NextResponse(JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Invalid date format provided' 
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    }
 
     await prisma.$connect()
 
