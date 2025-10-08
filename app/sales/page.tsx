@@ -366,7 +366,7 @@ export default function SalesPage() {
         className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.8rem] flex items-center justify-center ${
           selectedCategory === category.id
             ? 'bg-green-100 border border-green-300 text-green-800'
-            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
+            : 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
         }`}
       >
         <div className="font-medium text-gray-900 text-xs leading-tight text-center">
@@ -1534,7 +1534,7 @@ export default function SalesPage() {
           className="bg-gray-50 flex-shrink-0"
           style={{
             height: showInlineProductSelection 
-              ? 'calc(4 * 3.2rem + 0.5rem)' // 4 rows * 3.2rem + small margin when selection is open
+              ? 'calc(100vh - 200px)' // More height when selection is open to show more products
               : 'calc(100vh - 140px)' // Reduced height when selection is closed to prevent overflow
           }}
         >
@@ -1621,8 +1621,8 @@ export default function SalesPage() {
                         }}
                         className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.8rem] flex items-center justify-center ${
                           selectedCategory === null && selectedParentCategory === null
-                            ? 'bg-green-100 border border-green-300 text-green-800'
-                            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
+                            ? 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
+                            : 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
                         }`}
                       >
                         <div className="font-medium text-gray-900 text-xs leading-tight text-center">الكل</div>
@@ -1635,7 +1635,7 @@ export default function SalesPage() {
                         {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
                         <button
                           onClick={() => setSelectedParentCategory(null)}
-                          className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[2.8rem] flex items-center justify-center"
+                          className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-gray-200 border border-black text-gray-800 min-h-[2.8rem] flex items-center justify-center"
                         >
                           <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
                         </button>
