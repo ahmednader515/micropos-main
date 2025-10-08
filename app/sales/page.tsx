@@ -1534,11 +1534,11 @@ export default function SalesPage() {
           className="bg-gray-50 flex-shrink-0"
           style={{
             height: showInlineProductSelection 
-              ? (showCategoryView 
-                  ? 'calc(100vh - 48px - 48px - 9.15rem - 9.15rem - 48px)' // Top bar + Bottom bar + Products + Categories + Toggle area
-                  : 'calc(100vh - 48px - 48px - 9.15rem - 48px)' // Top bar + Bottom bar + Products + Toggle area
+              ? (showCategoryView && showInlineProductSelection
+                  ? 'calc(20vh)' // Both sections visible - 20% of viewport height
+                  : 'calc(40vh)' // Only products section visible - 40% of viewport height
                 )
-              : 'calc(100vh - 48px - 48px)' // Top bar + Bottom bar only
+              : 'calc(70vh)' // No sections visible - 70% of viewport height
           }}
         >
           <div ref={productsListRef} className="h-full overflow-y-auto">
