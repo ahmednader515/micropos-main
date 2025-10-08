@@ -1534,8 +1534,11 @@ export default function SalesPage() {
           className="bg-gray-50 flex-shrink-0"
           style={{
             height: showInlineProductSelection 
-              ? 'calc(100vh - 300px)' // Reduced height to allow scrolling when selection is open
-              : 'calc(100vh - 140px)' // Reduced height when selection is closed to prevent overflow
+              ? (showCategoryView 
+                  ? 'calc(100vh - 400px)' // Both products and categories sections visible
+                  : 'calc(100vh - 300px)' // Only products section visible
+                )
+              : 'calc(100vh - 140px)' // No selection sections visible
           }}
         >
           <div ref={productsListRef} className="h-full overflow-y-auto">
@@ -1652,8 +1655,8 @@ export default function SalesPage() {
         )}
 
 
-        {/* Action Buttons - Always fixed at bottom */}
-        <div className="fixed bottom-2 left-2 z-40">
+        {/* Products Toggle Button - Fixed at bottom right */}
+        <div className="fixed bottom-12 right-2 z-40">
           <button
             onClick={() => {
               const newShowInlineProductSelection = !showInlineProductSelection
@@ -1663,7 +1666,7 @@ export default function SalesPage() {
                 setShowCategoryView(true)
               }
             }}
-            className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-50"
+            className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-65"
             title="إضافة منتجات"
           >
             <svg
@@ -1683,12 +1686,12 @@ export default function SalesPage() {
           </button>
         </div>
 
-        {/* Categories Button - Only show when products are visible */}
+        {/* Categories Toggle Button - Fixed at bottom left, only show when products are visible */}
         {showInlineProductSelection && (
-          <div className="fixed bottom-2 right-2 z-40">
+          <div className="fixed bottom-12 left-2 z-40">
             <button
               onClick={() => setShowCategoryView(!showCategoryView)}
-              className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-50 ${
+              className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-65 ${
                 showCategoryView ? 'bg-gray-100' : ''
               }`}
               title="الفئات"
