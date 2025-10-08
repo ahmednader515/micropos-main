@@ -363,7 +363,7 @@ export default function SalesPage() {
             }
           }
         }}
-        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
+        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.8rem] flex items-center justify-center ${
           selectedCategory === category.id
             ? 'bg-green-100 border border-green-300 text-green-800'
             : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -1570,82 +1570,84 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Products Selection - Part of main page structure */}
+        {/* Products and Categories Selection - Fixed at bottom */}
         {showInlineProductSelection && (
-          <div className="bg-white border-t border-gray-200" dir="rtl">
-            {/* Products Grid - Fixed 3 rows height with scrolling */}
-            <div 
-              className="overflow-y-auto flex-shrink-0"
-              style={{ height: 'calc(3 * 2.2rem + 0.75rem)' }} // 3 rows * 2.2rem + extra padding to show full third row
-            >
-              <div className="p-1">
-                <div className="grid grid-cols-3 gap-1">
-                  {getFilteredProducts().map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => addProductToSale(product)}
-                        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
-                          product.color 
-                            ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
-                            : 'bg-white border border-gray-200 hover:bg-gray-50'
-                        }`}
-                      style={{
-                        backgroundColor: product.color ? `${product.color}15` : undefined,
-                        borderColor: product.color ? `${product.color}40` : undefined
-                      }}
-                    >
-                      <div className="font-medium text-gray-900 text-xs leading-tight text-center">
-                        {product.name}
-                      </div>
-                    </button>
-                  ))}
+          <div className="fixed bottom-12 left-0 right-0 z-30" dir="rtl">
+            {/* Products Selection */}
+            <div className="bg-white border-t border-gray-200">
+              <div 
+                className="overflow-y-auto flex-shrink-0"
+                style={{ height: 'calc(3 * 2.8rem + 0.75rem)' }} // 3 rows * 2.8rem + extra padding to show full third row
+              >
+                <div className="p-1">
+                  <div className="grid grid-cols-3 gap-1">
+                    {getFilteredProducts().map(product => (
+                        <button
+                          key={product.id}
+                          onClick={() => addProductToSale(product)}
+                          className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.8rem] flex items-center justify-center ${
+                            product.color 
+                              ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
+                              : 'bg-white border border-gray-200 hover:bg-gray-50'
+                          }`}
+                          style={{
+                            backgroundColor: product.color ? `${product.color}15` : undefined,
+                            borderColor: product.color ? `${product.color}40` : undefined
+                          }}
+                        >
+                          <div className="font-medium text-gray-900 text-xs leading-tight text-center">
+                            {product.name}
+                          </div>
+                        </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Categories Selection - Fixed at bottom */}
-        {showInlineProductSelection && showCategoryView && (
-          <div 
-            className="bg-gray-50 border-t border-gray-200 overflow-y-auto flex-shrink-0"
-            style={{ height: 'calc(3 * 2.2rem + 0.75rem)' }} // 3 rows * 2.2rem + extra padding to show full third row
-          >
-            <div className="p-1">
-              <div className="grid grid-cols-3 gap-1">
-                {!selectedParentCategory && (
-                  <button
-                    onClick={() => {
-                      setSelectedCategory(null)
-                      setSelectedParentCategory(null)
-                    }}
-                    className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
-                      selectedCategory === null && selectedParentCategory === null
-                        ? 'bg-green-100 border border-green-300 text-green-800'
-                        : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <div className="font-medium text-gray-900 text-xs leading-tight text-center">الكل</div>
-                  </button>
-                )}
-                
-                {selectedParentCategory ? (
-                  // Show only subcategories of selected parent
-                  <>
-                    {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
-                    <button
-                      onClick={() => setSelectedParentCategory(null)}
-                      className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[2.2rem] flex items-center justify-center"
-                    >
-                      <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
-                    </button>
-                  </>
-                ) : (
-                  // Show all parent categories
-                  renderCategoryGrid(categories, false)
-                )}
+            {/* Categories Selection */}
+            {showCategoryView && (
+              <div 
+                className="bg-gray-50 border-t border-gray-200 overflow-y-auto flex-shrink-0"
+                style={{ height: 'calc(3 * 2.8rem + 0.75rem)' }} // 3 rows * 2.8rem + extra padding to show full third row
+              >
+                <div className="p-1">
+                  <div className="grid grid-cols-3 gap-1">
+                    {!selectedParentCategory && (
+                      <button
+                        onClick={() => {
+                          setSelectedCategory(null)
+                          setSelectedParentCategory(null)
+                        }}
+                        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.8rem] flex items-center justify-center ${
+                          selectedCategory === null && selectedParentCategory === null
+                            ? 'bg-green-100 border border-green-300 text-green-800'
+                            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="font-medium text-gray-900 text-xs leading-tight text-center">الكل</div>
+                      </button>
+                    )}
+                    
+                    {selectedParentCategory ? (
+                      // Show only subcategories of selected parent
+                      <>
+                        {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
+                        <button
+                          onClick={() => setSelectedParentCategory(null)}
+                          className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[2.8rem] flex items-center justify-center"
+                        >
+                          <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
+                        </button>
+                      </>
+                    ) : (
+                      // Show all parent categories
+                      renderCategoryGrid(categories, false)
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1663,7 +1665,7 @@ export default function SalesPage() {
                   setShowCategoryView(true)
                 }
               }}
-              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center"
+              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-50"
               title="إضافة منتجات"
             >
               <svg
@@ -1686,7 +1688,7 @@ export default function SalesPage() {
             {showInlineProductSelection && (
               <button
                 onClick={() => setShowCategoryView(!showCategoryView)}
-                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-50 ${
                   showCategoryView ? 'bg-gray-100' : ''
                 }`}
                 title="الفئات"
