@@ -363,7 +363,7 @@ export default function SalesPage() {
             }
           }
         }}
-        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
+        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
           selectedCategory === category.id
             ? 'bg-green-100 border border-green-300 text-green-800'
             : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -1341,7 +1341,7 @@ export default function SalesPage() {
       >
       <div className="h-screen flex flex-col overflow-hidden" dir="rtl" style={{ height: '100vh', maxHeight: '100vh', minHeight: '100vh' }}>
         {/* Top Row with Search Bar in Middle and Buttons on Sides */}
-        <div className="flex items-center gap-1 p-0.5 bg-white border-b flex-shrink-0" dir="rtl">
+        <div className="flex items-center gap-1 p-2 bg-white border-b flex-shrink-0" dir="rtl">
           {/* Left Side - Barcode Button and Customer Search Button */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {/* Barcode Button (separate from search) */}
@@ -1534,7 +1534,7 @@ export default function SalesPage() {
           className="bg-gray-50 flex-shrink-0"
           style={{
             height: showInlineProductSelection 
-              ? 'calc(4 * 2.5rem + 0.5rem)' // 4 rows + small margin when selection is open
+              ? 'calc(4 * 3.2rem + 0.5rem)' // 4 rows * 3.2rem + small margin when selection is open
               : 'calc(100vh - 140px)' // Reduced height when selection is closed to prevent overflow
           }}
         >
@@ -1550,7 +1550,7 @@ export default function SalesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(saleItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer min-h-[40px]" onClick={() => handleProductClick(item)}>
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer min-h-[50px]" onClick={() => handleProductClick(item)}>
                     <td className="px-2 py-2 text-gray-900 font-medium">
                       <div className="truncate text-xs">{item.name}</div>
                     </td>
@@ -1576,19 +1576,19 @@ export default function SalesPage() {
             {/* Products Grid - Fixed 3 rows height with scrolling */}
             <div 
               className="overflow-y-auto flex-shrink-0"
-              style={{ height: 'calc(3 * 1.8rem + 0.75rem)' }} // 3 rows * 1.8rem + extra padding to show full third row
+              style={{ height: 'calc(3 * 2.2rem + 0.75rem)' }} // 3 rows * 2.2rem + extra padding to show full third row
             >
               <div className="p-1">
                 <div className="grid grid-cols-3 gap-1">
                   {getFilteredProducts().map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => addProductToSale(product)}
-                      className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
-                        product.color 
-                          ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
-                          : 'bg-white border border-gray-200 hover:bg-gray-50'
-                      }`}
+                      <button
+                        key={product.id}
+                        onClick={() => addProductToSale(product)}
+                        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
+                          product.color 
+                            ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
+                            : 'bg-white border border-gray-200 hover:bg-gray-50'
+                        }`}
                       style={{
                         backgroundColor: product.color ? `${product.color}15` : undefined,
                         borderColor: product.color ? `${product.color}40` : undefined
@@ -1609,7 +1609,7 @@ export default function SalesPage() {
         {showInlineProductSelection && showCategoryView && (
           <div 
             className="bg-gray-50 border-t border-gray-200 overflow-y-auto flex-shrink-0"
-            style={{ height: 'calc(3 * 1.8rem + 0.75rem)' }} // 3 rows * 1.8rem + extra padding to show full third row
+            style={{ height: 'calc(3 * 2.2rem + 0.75rem)' }} // 3 rows * 2.2rem + extra padding to show full third row
           >
             <div className="p-1">
               <div className="grid grid-cols-3 gap-1">
@@ -1619,7 +1619,7 @@ export default function SalesPage() {
                       setSelectedCategory(null)
                       setSelectedParentCategory(null)
                     }}
-                    className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
+                    className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[2.2rem] flex items-center justify-center ${
                       selectedCategory === null && selectedParentCategory === null
                         ? 'bg-green-100 border border-green-300 text-green-800'
                         : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
@@ -1635,7 +1635,7 @@ export default function SalesPage() {
                     {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
                     <button
                       onClick={() => setSelectedParentCategory(null)}
-                      className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[1.8rem] flex items-center justify-center"
+                      className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[2.2rem] flex items-center justify-center"
                     >
                       <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
                     </button>
