@@ -1535,10 +1535,10 @@ export default function SalesPage() {
           style={{
             height: showInlineProductSelection 
               ? (showCategoryView 
-                  ? 'calc(100vh - 48px - 48px - 146px - 146px - 48px)' // Top bar + Bottom bar + Products + Categories + Toggle area
-                  : 'calc(100vh - 48px - 48px - 146px - 48px)' // Top bar + Bottom bar + Products + Toggle area
+                  ? 'calc(100vh - 200px)' // Both products and categories sections visible - reduced for mobile
+                  : 'calc(100vh - 150px)' // Only products section visible - reduced for mobile
                 )
-              : 'calc(100vh - 48px - 48px)' // Top bar + Bottom bar only
+              : 'calc(100vh - 100px)' // No selection sections visible - reduced for mobile
           }}
         >
           <div ref={productsListRef} className="h-full overflow-y-auto">
