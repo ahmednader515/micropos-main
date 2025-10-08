@@ -1276,13 +1276,13 @@ export default function SalesPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })
-    return `${englishNumerals} ج.م`
+    return `${englishNumerals}`
   }
 
   const formatPriceInArabic = (amount: number) => {
     // Convert to English numerals
     const englishNumerals = amount.toLocaleString('en-US')
-    return `${englishNumerals} ج.م`
+    return `${englishNumerals}`
   }
 
   const getDisplayPrice = (item: SaleItem) => {
