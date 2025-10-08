@@ -16,9 +16,10 @@ interface MainLayoutProps {
   customRightButton?: React.ReactNode
   hideNavbar?: boolean
   removeTopPadding?: boolean
+  removeAllPadding?: boolean
 }
 
-export default function MainLayout({ children, navbarTitle, onBack, menuOptions, customRightButton, hideNavbar, removeTopPadding }: MainLayoutProps) {
+export default function MainLayout({ children, navbarTitle, onBack, menuOptions, customRightButton, hideNavbar, removeTopPadding, removeAllPadding }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -46,17 +47,9 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
           <div className={`flex-shrink-0 z-30 shadow-sm lg:hidden ${navbarTitle ? 'bg-white' : 'bg-gradient-to-l from-blue-600 to-purple-600'}`}>
             {navbarTitle ? (
               <div className="flex items-center justify-between px-2 py-3 relative">
-                {/* Spacer to keep title centered */}
-                <div style={{ minWidth: 40 }} />
-                {/* Title */}
-                <div className="flex-1 flex justify-center">
-                  <h1 className="text-lg font-semibold text-gray-900 truncate">{navbarTitle}</h1>
-                </div>
-                {/* Right button */}
+                {/* Left button - Menu */}
                 <div className="relative" style={{ minWidth: 40 }}>
-                  {customRightButton ? (
-                    customRightButton
-                  ) : menuOptions && menuOptions.length > 0 ? (
+                  {menuOptions && menuOptions.length > 0 ? (
                     <>
                       <button
                         onClick={() => setMenuOpen((v) => !v)}
@@ -69,7 +62,7 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
                         </svg>
                       </button>
                       {menuOpen && (
-                        <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-64 overflow-y-auto">
+                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-64 overflow-y-auto">
                           {menuOptions.map((option, idx) => (
                             <button
                               key={idx}
@@ -85,6 +78,25 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
                         </div>
                       )}
                     </>
+                  ) : null}
+                </div>
+                {/* Title */}
+                <div className="flex-1 flex justify-center">
+                  <h1 className="text-lg font-semibold text-gray-900 truncate">{navbarTitle}</h1>
+                </div>
+                {/* Right button - Back */}
+                <div className="relative" style={{ minWidth: 40 }}>
+                  {customRightButton ? (
+                    customRightButton
+                  ) : onBack ? (
+                    <button
+                      onClick={onBack}
+                      className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 px-2"
+                    >
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -104,7 +116,17 @@ export default function MainLayout({ children, navbarTitle, onBack, menuOptions,
             )}
           </div>
         )}
-        <div className={`flex-1 overflow-auto ${removeTopPadding ? 'px-4 pb-4 lg:px-6 lg:pb-6' : 'p-4 lg:p-6'}`}>
+        <div className={`flex-1 ${
+          removeAllPadding 
+            ? 'overflow-hidden' 
+            : 'overflow-auto'
+        } ${
+          removeAllPadding 
+            ? '' 
+            : removeTopPadding 
+              ? 'px-4 pb-4 lg:px-6 lg:pb-6' 
+              : 'p-4 lg:p-6'
+        }`}>
           {children}
         </div>
       </main>

@@ -90,6 +90,7 @@ export default function SalesPage() {
     invoiceNote: '',
     removeFromList: false
   })
+  const productsListRef = useRef<HTMLDivElement>(null)
   const [selectedPriceType, setSelectedPriceType] = useState<'price1' | 'price2' | 'price3'>('price1')
   const [selectedMenuPrice, setSelectedMenuPrice] = useState<number | null>(null)
   const [isPriceFixed, setIsPriceFixed] = useState(false)
@@ -362,26 +363,14 @@ export default function SalesPage() {
             }
           }
         }}
-        className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
           selectedCategory === category.id
-            ? 'bg-green-100 border-2 border-green-300 text-green-800'
-            : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+            ? 'bg-green-100 border border-green-300 text-green-800'
+            : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
         }`}
       >
-        <div className="flex items-center justify-between">
-          <div className="font-medium text-gray-900 text-xs leading-tight truncate">{category.name}</div>
-          {category.children && category.children.length > 0 && (
-            <div className="p-1 hover:bg-gray-200 rounded cursor-pointer">
-              <svg
-                className="w-4 h-4 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          )}
+        <div className="font-medium text-gray-900 text-xs leading-tight text-center">
+          {category.name}
         </div>
       </button>
     ))
@@ -545,6 +534,13 @@ export default function SalesPage() {
     
     // Play sound when product is added
     playAddProductSound()
+    
+    // Auto-scroll to bottom of products list when new product is added
+    setTimeout(() => {
+      if (productsListRef.current) {
+        productsListRef.current.scrollTop = productsListRef.current.scrollHeight
+      }
+    }, 100)
   }
 
   const removeProductFromSale = (productId: string) => {
@@ -1317,29 +1313,41 @@ export default function SalesPage() {
         navbarTitle="المبيعات"
         onBack={() => setShowConfirmLeave(true)}
         menuOptions={menuOptions}
+        removeAllPadding={true}
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">جاري التحميل...</div>
         </div>
       </MainLayout>
-    )
+  )
   }
 
   return (
-    <MainLayout
-      navbarTitle={isPriceFixed ? `المبيعات - سعر البيع ${selectedMenuPrice}` : "المبيعات"}
-      onBack={() => setShowConfirmLeave(true)}
-      menuOptions={menuOptions}
-    >
-      <div className="h-full flex flex-col -m-4 lg:-m-6" dir="rtl">
+    <>
+      <style jsx global>{`
+        html, body {
+          height: 100vh;
+          max-height: 100vh;
+          overflow: hidden;
+          margin: 0;
+          padding: 0;
+        }
+      `}</style>
+      <MainLayout
+        navbarTitle={isPriceFixed ? `المبيعات - سعر البيع ${selectedMenuPrice}` : "المبيعات"}
+        onBack={() => setShowConfirmLeave(true)}
+        menuOptions={menuOptions}
+        removeAllPadding={true}
+      >
+      <div className="h-screen flex flex-col overflow-hidden" dir="rtl" style={{ height: '100vh', maxHeight: '100vh', minHeight: '100vh' }}>
         {/* Top Row with Search Bar in Middle and Buttons on Sides */}
-        <div className="flex items-center gap-1 p-2 sm:p-4 bg-white border-b flex-shrink-0" dir="rtl">
+        <div className="flex items-center gap-1 p-0.5 bg-white border-b flex-shrink-0" dir="rtl">
           {/* Left Side - Barcode Button and Customer Search Button */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {/* Barcode Button (separate from search) */}
             <button
               onClick={() => setShowBarcodeScanner(true)}
-              className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded"
+              className="p-0.5 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded min-h-[28px] min-w-[28px] flex items-center justify-center"
               title="مسح الباركود"
             >
               <svg
@@ -1362,7 +1370,7 @@ export default function SalesPage() {
             <div className="relative">
           <button
                 onClick={() => setShowCustomerSearch(!showCustomerSearch)}
-                className={`p-1.5 transition-colors rounded ${
+                className={`p-0.5 transition-colors rounded min-h-[28px] min-w-[28px] flex items-center justify-center ${
                   selectedCustomer 
                     ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' 
                     : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-gray-200'
@@ -1397,7 +1405,7 @@ export default function SalesPage() {
         </div>
 
           {/* Middle - Search Bar */}
-          <div className="flex-1 min-w-0 max-w-lg mx-1 relative product-search-container">
+          <div className="flex-1 min-w-0 mx-1 relative product-search-container">
             <input
               type="text"
               value={productSearchValue}
@@ -1406,8 +1414,8 @@ export default function SalesPage() {
                 setShowProductDropdown(true)
               }}
               onFocus={() => setShowProductDropdown(true)}
-              placeholder="ابحث عن منتج او استخدم الكاميرا"
-              className="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
+              placeholder="ابحث عن منتج"
+              className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs placeholder:text-xs min-h-[28px]"
             />
             {productSearchValue.trim() !== '' && filteredProducts.length > 0 && showProductDropdown && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
@@ -1431,11 +1439,11 @@ export default function SalesPage() {
             </div>
 
           {/* Right Side - Screen Switcher and Calculator */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {/* Screen Switcher */}
             <button
               onClick={() => setShowScreenModal(true)}
-              className="p-1 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded"
+              className="p-0.5 text-gray-500 hover:text-blue-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded min-h-[28px] min-w-[28px] flex items-center justify-center"
               title={`الشاشة ${screenNumber} - ${(saleItems[screenNumber] || []).length} منتج`}
             >
               <div className="grid grid-cols-2 gap-0.5">
@@ -1457,7 +1465,7 @@ export default function SalesPage() {
             {/* Calculator Button */}
             <button
               onClick={handleCheckoutClick}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-2 rounded transition-colors text-xs whitespace-nowrap"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-0.5 px-1.5 rounded transition-colors text-xs whitespace-nowrap min-h-[28px]"
             >
               حاسب
             </button>
@@ -1467,14 +1475,14 @@ export default function SalesPage() {
 
         {/* Customer Search Bar - Full width above table */}
         {showCustomerSearch && (
-          <div className="w-full bg-white border-b border-gray-200 p-4 customer-search-container" dir="rtl">
+          <div className="w-full bg-white border-b border-gray-200 p-1 customer-search-container" dir="rtl">
             <div className="relative">
               <input
                 type="text"
                 value={customerSearchValue}
                 onChange={(e) => setCustomerSearchValue(e.target.value)}
                 placeholder="ابحث عن عميل..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs min-h-[28px]"
                 autoFocus
               />
               {customerSearchValue.trim() !== '' && filteredCustomers.length > 0 && (
@@ -1521,39 +1529,39 @@ export default function SalesPage() {
           </div>
         )}
 
-        {/* Cart/Selected Items Section - Dynamic Height */}
+        {/* Cart/Selected Items Section - Dynamic height */}
         <div 
-          className="overflow-auto min-h-0 bg-gray-50"
+          className="bg-gray-50 flex-shrink-0"
           style={{
             height: showInlineProductSelection 
-              ? (showCategoryView ? 'calc(100vh - 50vh - 200px)' : 'calc(100vh - 35vh - 200px)')
-              : 'calc(100vh - 200px)'
+              ? 'calc(4 * 2.5rem + 0.5rem)' // 4 rows + small margin when selection is open
+              : 'calc(100vh - 140px)' // Reduced height when selection is closed to prevent overflow
           }}
         >
-          <div className="h-full overflow-y-auto">
-            <table className="w-full text-sm" dir="rtl">
+          <div ref={productsListRef} className="h-full overflow-y-auto">
+            <table className="w-full text-xs" dir="rtl">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">المنتج</th>
-                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">السعر</th>
-                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الكمية</th>
-                  <th className="px-2 sm:px-3 lg:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 text-xs sm:text-sm">الاجمالي</th>
+                  <th className="px-2 py-2 text-right font-medium text-gray-500 text-xs">المنتج</th>
+                  <th className="px-1 py-2 text-right font-medium text-gray-500 text-xs">السعر</th>
+                  <th className="px-1 py-2 text-right font-medium text-gray-500 text-xs">الكمية</th>
+                  <th className="px-2 py-2 text-right font-medium text-gray-500 text-xs">الاجمالي</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(saleItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)}>
-                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="truncate max-w-xs text-xs sm:text-sm">{item.name}</div>
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer min-h-[40px]" onClick={() => handleProductClick(item)}>
+                    <td className="px-2 py-2 text-gray-900 font-medium">
+                      <div className="truncate text-xs">{item.name}</div>
                     </td>
-                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(getDisplayPrice(item))}</div>
+                    <td className="px-1 py-2 text-gray-900 font-medium">
+                      <div className="text-xs">{formatCurrency(getDisplayPrice(item))}</div>
                     </td>
-                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="text-xs sm:text-sm lg:text-base">{item.quantity}</div>
+                    <td className="px-1 py-2 text-gray-900 font-medium">
+                      <div className="text-xs">{item.quantity}</div>
                     </td>
-                    <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
-                      <div className="text-xs sm:text-sm lg:text-base">{formatCurrency(getDisplayTotal(item))}</div>
+                    <td className="px-2 py-2 text-gray-900 font-medium">
+                      <div className="text-xs font-semibold">{formatCurrency(getDisplayTotal(item))}</div>
                     </td>
                   </tr>
                 ))}
@@ -1562,88 +1570,100 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Products and Categories Section - Slightly increased height */}
+        {/* Products Selection - Part of main page structure */}
         {showInlineProductSelection && (
-          <div className={`fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 z-40 ${showCategoryView ? 'h-[50vh]' : 'h-[35vh]'}`} dir="rtl">
-            <div className="flex flex-col h-full">
-              {/* Products Grid - Always scrollable with proper height constraints */}
-              <div className={`overflow-y-auto min-h-0 ${showCategoryView ? 'h-1/2' : 'h-full'}`}>
-                <div className="p-4">
-                  <div className="grid grid-cols-4 gap-2">
-                    {getFilteredProducts().map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => addProductToSale(product)}
-                        className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
-                          product.color 
-                            ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
-                            : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
-                        }`}
-                        style={{
-                          backgroundColor: product.color ? `${product.color}15` : undefined,
-                          borderColor: product.color ? `${product.color}40` : undefined
-                        }}
-                      >
-                        <div className="font-medium text-gray-900 text-xs leading-tight">
-                          {product.name}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+          <div className="bg-white border-t border-gray-200" dir="rtl">
+            {/* Products Grid - Fixed 3 rows height with scrolling */}
+            <div 
+              className="overflow-y-auto flex-shrink-0"
+              style={{ height: 'calc(3 * 1.8rem + 0.75rem)' }} // 3 rows * 1.8rem + extra padding to show full third row
+            >
+              <div className="p-1">
+                <div className="grid grid-cols-3 gap-1">
+                  {getFilteredProducts().map(product => (
+                    <button
+                      key={product.id}
+                      onClick={() => addProductToSale(product)}
+                      className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
+                        product.color 
+                          ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
+                          : 'bg-white border border-gray-200 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        backgroundColor: product.color ? `${product.color}15` : undefined,
+                        borderColor: product.color ? `${product.color}40` : undefined
+                      }}
+                    >
+                      <div className="font-medium text-gray-900 text-xs leading-tight text-center">
+                        {product.name}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
-              
-              {/* Categories Section - Scrollable */}
-              {showCategoryView && (
-                <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 h-1/2 overflow-y-auto">
-                  <div className="p-4">
-                    <div className="grid grid-cols-4 gap-2">
-                      {!selectedParentCategory && (
-                        <button
-                          onClick={() => {
-                            setSelectedCategory(null)
-                            setSelectedParentCategory(null)
-                          }}
-                          className={`p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
-                            selectedCategory === null && selectedParentCategory === null
-                              ? 'bg-green-100 border-2 border-green-300 text-green-800'
-                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          <div className="font-medium text-gray-900 text-xs leading-tight">الكل</div>
-                        </button>
-                      )}
-                      
-                      {selectedParentCategory ? (
-                        // Show only subcategories of selected parent
-                        <>
-                          {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
-                          <button
-                            onClick={() => setSelectedParentCategory(null)}
-                            className="p-2 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
-                          >
-                            <div className="font-medium text-gray-900 text-xs leading-tight">← العودة</div>
-                          </button>
-                        </>
-                      ) : (
-                        // Show all parent categories
-                        renderCategoryGrid(categories, false)
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
 
-        {/* Action Buttons - Fixed above bottom bar */}
-        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-50">
-          <div className="flex items-center justify-between">
+        {/* Categories Selection - Fixed at bottom */}
+        {showInlineProductSelection && showCategoryView && (
+          <div 
+            className="bg-gray-50 border-t border-gray-200 overflow-y-auto flex-shrink-0"
+            style={{ height: 'calc(3 * 1.8rem + 0.75rem)' }} // 3 rows * 1.8rem + extra padding to show full third row
+          >
+            <div className="p-1">
+              <div className="grid grid-cols-3 gap-1">
+                {!selectedParentCategory && (
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(null)
+                      setSelectedParentCategory(null)
+                    }}
+                    className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md min-h-[1.8rem] flex items-center justify-center ${
+                      selectedCategory === null && selectedParentCategory === null
+                        ? 'bg-green-100 border border-green-300 text-green-800'
+                        : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <div className="font-medium text-gray-900 text-xs leading-tight text-center">الكل</div>
+                  </button>
+                )}
+                
+                {selectedParentCategory ? (
+                  // Show only subcategories of selected parent
+                  <>
+                    {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
+                    <button
+                      onClick={() => setSelectedParentCategory(null)}
+                      className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800 min-h-[1.8rem] flex items-center justify-center"
+                    >
+                      <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
+                    </button>
+                  </>
+                ) : (
+                  // Show all parent categories
+                  renderCategoryGrid(categories, false)
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* Action Buttons - Always fixed at bottom */}
+        <div className="fixed bottom-12 left-0 right-0 bg-transparent p-2 z-40">
+          <div className="flex items-center justify-between gap-2">
             {/* Add Products Button */}
             <button
-              onClick={() => setShowInlineProductSelection(!showInlineProductSelection)}
-              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300"
+              onClick={() => {
+                const newShowInlineProductSelection = !showInlineProductSelection
+                setShowInlineProductSelection(newShowInlineProductSelection)
+                // Automatically show categories when products selection is opened
+                if (newShowInlineProductSelection) {
+                  setShowCategoryView(true)
+                }
+              }}
+              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center"
               title="إضافة منتجات"
             >
               <svg
@@ -1666,7 +1686,7 @@ export default function SalesPage() {
             {showInlineProductSelection && (
               <button
                 onClick={() => setShowCategoryView(!showCategoryView)}
-                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 ${
+                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center ${
                   showCategoryView ? 'bg-gray-100' : ''
                 }`}
                 title="الفئات"
@@ -1682,16 +1702,16 @@ export default function SalesPage() {
         </div>
 
 
-        {/* Bottom Section - Fixed at bottom */}
-        <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
+        {/* Bottom Section - Always fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white z-50">
           {/* Bottom Bar with Totals */}
-          <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
-            <div className="text-base sm:text-lg font-semibold">
+          <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 border-t">
+            <div className="text-sm font-semibold">
               الإجمالي: {formatCurrency(calculateTotal())}
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-xs text-gray-600">
               ع.ق: {calculateTotalQuantity()}
-                      </div>
+            </div>
           </div>
         </div>
 
@@ -2629,5 +2649,6 @@ export default function SalesPage() {
       />
 
     </MainLayout>
+    </>
   )
 }
