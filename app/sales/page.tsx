@@ -1538,8 +1538,8 @@ export default function SalesPage() {
           style={{
             height: showInlineProductSelection 
               ? (showCategoryView && showInlineProductSelection
-                  ? 'calc((100vh - 12rem) / 3)' // Both sections visible - 1/3 of available space
-                  : 'calc((100vh - 8rem) / 2)' // Only products section visible - 1/2 of available space
+                  ? 'calc((100vh - 12rem) / 3 + 2rem)' // Both sections visible - 1/3 of available space + extra for header
+                  : 'calc((100vh - 8rem) / 2 + 2rem)' // Only products section visible - 1/2 of available space + extra for header
                 )
               : 'calc(70vh)' // No sections visible - 70% of viewport height
           }}
