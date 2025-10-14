@@ -1535,8 +1535,8 @@ export default function SalesPage() {
           style={{
             height: showInlineProductSelection 
               ? (showCategoryView && showInlineProductSelection
-                  ? 'calc(35vh)' // Both sections visible - 35% of viewport height
-                  : 'calc(70vh)' // Only products section visible - 70% of viewport height
+                  ? '310px' // Both sections visible - show only 3 products (3 × 100px + header)
+                  : '310px' // Only products section visible - show only 3 products (3 × 100px + header)
                 )
               : 'calc(70vh)' // No sections visible - 70% of viewport height
           }}
@@ -1553,17 +1553,17 @@ export default function SalesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(saleItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer min-h-[50px]" onClick={() => handleProductClick(item)}>
-                    <td className="px-2 py-2 text-gray-900 font-medium">
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer min-h-[100px]" onClick={() => handleProductClick(item)}>
+                    <td className="px-2 py-4 text-gray-900 font-medium">
                       <div className="truncate text-xs">{item.name}</div>
                     </td>
-                    <td className="px-1 py-2 text-gray-900 font-medium">
+                    <td className="px-1 py-4 text-gray-900 font-medium">
                       <div className="text-xs">{formatCurrency(getDisplayPrice(item))}</div>
                     </td>
-                    <td className="px-1 py-2 text-gray-900 font-medium">
+                    <td className="px-1 py-4 text-gray-900 font-medium">
                       <div className="text-xs">{item.quantity}</div>
                     </td>
-                    <td className="px-2 py-2 text-gray-900 font-medium">
+                    <td className="px-2 py-4 text-gray-900 font-medium">
                       <div className="text-xs font-semibold">{formatCurrency(getDisplayTotal(item))}</div>
                     </td>
                   </tr>
