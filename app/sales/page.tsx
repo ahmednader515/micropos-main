@@ -369,7 +369,7 @@ export default function SalesPage() {
             : 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
         }`}
         style={{
-          height: 'calc((100vh - 8rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
+          height: 'calc((100vh - 12rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
         }}
       >
         <div className="font-medium text-gray-900 text-xs leading-tight text-center">
@@ -1538,8 +1538,8 @@ export default function SalesPage() {
           style={{
             height: showInlineProductSelection 
               ? (showCategoryView && showInlineProductSelection
-                  ? 'calc((100vh - 8rem) / 3)' // Both sections visible - 1/3 of available space
-                  : 'calc((100vh - 4rem) / 2)' // Only products section visible - 1/2 of available space
+                  ? 'calc((100vh - 12rem) / 3)' // Both sections visible - 1/3 of available space
+                  : 'calc((100vh - 8rem) / 2)' // Only products section visible - 1/2 of available space
                 )
               : 'calc(70vh)' // No sections visible - 70% of viewport height
           }}
@@ -1556,7 +1556,7 @@ export default function SalesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(saleItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)} style={{ height: showInlineProductSelection ? (showCategoryView ? 'calc((100vh - 8rem) / 9)' : 'calc((100vh - 4rem) / 6)') : '100px' }}>
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)} style={{ height: showInlineProductSelection ? (showCategoryView ? 'calc((100vh - 12rem) / 9)' : 'calc((100vh - 8rem) / 6)') : '100px' }}>
                     <td className="px-2 py-4 text-gray-900 font-medium">
                       <div className="truncate text-xs">{item.name}</div>
                     </td>
@@ -1578,15 +1578,15 @@ export default function SalesPage() {
 
         {/* Products and Categories Selection - Fixed at bottom */}
         {showInlineProductSelection && (
-          <div className="fixed bottom-0 left-0 right-0 z-30" dir="rtl">
+          <div className="fixed bottom-12 left-0 right-0 z-30" dir="rtl">
             {/* Products Selection */}
             <div className="bg-white">
               <div 
                 className="overflow-y-auto flex-shrink-0"
                 style={{ 
                   height: showCategoryView 
-                    ? 'calc((100vh - 8rem) / 3)' // Both sections visible - 1/3 of available space
-                    : 'calc((100vh - 4rem) / 2)' // Only products section visible - 1/2 of available space
+                    ? 'calc((100vh - 12rem) / 3)' // Both sections visible - 1/3 of available space
+                    : 'calc((100vh - 8rem) / 2)' // Only products section visible - 1/2 of available space
                 }}
               >
                 <div className="p-1">
@@ -1602,8 +1602,8 @@ export default function SalesPage() {
                           }`}
                           style={{
                             height: showCategoryView 
-                              ? 'calc((100vh - 8rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
-                              : 'calc((100vh - 4rem) / 6)', // 1/6 of available space (3 rows in 1/2 section)
+                              ? 'calc((100vh - 12rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
+                              : 'calc((100vh - 8rem) / 6)', // 1/6 of available space (3 rows in 1/2 section)
                             backgroundColor: product.color ? `${product.color}15` : undefined,
                             borderColor: product.color ? `${product.color}40` : undefined
                           }}
@@ -1622,7 +1622,7 @@ export default function SalesPage() {
             {showCategoryView && (
               <div 
                 className="bg-gray-50 overflow-y-auto flex-shrink-0"
-                style={{ height: 'calc((100vh - 8rem) / 3)' }} // 1/3 of available space
+                style={{ height: 'calc((100vh - 12rem) / 3)' }} // 1/3 of available space
               >
                 <div className="p-1">
                   <div className="grid grid-cols-3 gap-1">
@@ -1638,7 +1638,7 @@ export default function SalesPage() {
                             : 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
                         }`}
                         style={{
-                          height: 'calc((100vh - 8rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
+                          height: 'calc((100vh - 12rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
                         }}
                       >
                         <div className="font-medium text-gray-900 text-xs leading-tight text-center">الكل</div>
@@ -1653,7 +1653,7 @@ export default function SalesPage() {
                           onClick={() => setSelectedParentCategory(null)}
                           className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-gray-200 border border-black text-gray-800 flex items-center justify-center"
                           style={{
-                            height: 'calc((100vh - 8rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
+                            height: 'calc((100vh - 12rem) / 9)' // 1/9 of available space (3 rows in 1/3 section)
                           }}
                         >
                           <div className="font-medium text-gray-900 text-xs leading-tight text-center">← العودة</div>
