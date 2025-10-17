@@ -112,6 +112,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { supplierId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes, isReceiptNote } = body
 
+    // Map Arabic payment method values to enum values
+    const paymentMethodMap: { [key: string]: string } = {
+      'طلب شراء': 'CASH', // Purchase request - treat as cash
+      'اذن استلام': 'CASH', // Receipt note - treat as cash
+      'CASH': 'CASH',
+      'CARD': 'CARD',
+      'CREDIT': 'CASH', // Credit - treat as cash for now
+      'CHECK': 'CHECK',
+      'BANK_TRANSFER': 'BANK_TRANSFER',
+      'MOBILE_PAYMENT': 'MOBILE_PAYMENT',
+      'CASHBOX': 'CASHBOX'
+    }
+
+    const validPaymentMethod = paymentMethodMap[paymentMethod] || 'CASH'
+
     // Validate required fields
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -179,7 +194,7 @@ export async function POST(request: NextRequest) {
         discount: parseFloat(discount) || 0,
         tax: parseFloat(tax) || 0,
         status: isReceiptNote ? 'PENDING' : 'COMPLETED',
-        paymentMethod,
+        paymentMethod: validPaymentMethod as any,
         notes,
         items: {
           create: items.map((item: any) => ({

@@ -649,11 +649,12 @@ export default function SalesPage() {
     
     const total = calculateTotal()
     const taxAmount = calculateTax()
+    const totalWithTax = total + taxAmount
     setCheckoutForm(prev => ({
       ...prev,
-      total: total,
-      paid: total, // Default paid equals total on open
-      remaining: total - total - prev.discount + prev.tax, // will be adjusted if discount/tax change
+      total: totalWithTax,
+      paid: totalWithTax, // Default paid equals total with tax on open
+      remaining: totalWithTax - totalWithTax - prev.discount + prev.tax, // will be adjusted if discount/tax change
       customerAccount: selectedCustomer?.name || '',
       previousBalance: selectedCustomer ? parseFloat(selectedCustomer.balance) : 0
     }))
@@ -1793,7 +1794,7 @@ export default function SalesPage() {
           {/* Bottom Bar with Totals */}
           <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 border-t">
             <div className="text-sm font-semibold">
-              الإجمالي: {formatCurrency(calculateTotal())}
+              الإجمالي + الضريبة: {formatCurrency(calculateTotal() + calculateTax())}
             </div>
             <div className="text-xs text-gray-600">
               ع.ق: {calculateTotalQuantity()}
@@ -2198,7 +2199,7 @@ export default function SalesPage() {
                 <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
                     <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                      {formatCurrency(checkoutForm.total)}
+                      {formatCurrency(calculateTotal() + calculateTax())}
                     </div>
                 </div>
 
@@ -2210,7 +2211,7 @@ export default function SalesPage() {
                     step="0.01"
                     min="0"
                       value={checkoutForm.paid || ''}
-                      placeholder="0.00"
+                      placeholder={formatCurrency(calculateTotal() + calculateTax())}
                     onChange={(e) => {
                         const paid = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({
@@ -2223,34 +2224,55 @@ export default function SalesPage() {
                   />
                 </div>
 
-                {/* Discount and Remaining Amount */}
+                {/* Discount and Tax */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div>
+                  <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الخصم</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
                       value={checkoutForm.discount || ''}
                       placeholder="0.00"
-                    onChange={(e) => {
+                      onChange={(e) => {
                         const discount = parseFloat(e.target.value) || 0
                         setCheckoutForm(prev => ({ 
                           ...prev, 
                           discount,
-                          remaining: prev.total - prev.paid - discount
+                          remaining: prev.total - prev.paid - discount + prev.tax
                         }))
                       }}
                       className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الضريبة</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={checkoutForm.tax || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const tax = parseFloat(e.target.value) || 0
+                        setCheckoutForm(prev => ({ 
+                          ...prev, 
+                          tax,
+                          remaining: prev.total - prev.paid - prev.discount + tax
+                        }))
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
                 </div>
+
+                {/* Remaining Amount */}
                 <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
-                    <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                      {formatCurrency(checkoutForm.remaining)}
-                    </div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الباقي</label>
+                  <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
+                    {formatCurrency(checkoutForm.remaining)}
+                  </div>
                 </div>
-              </div>
 
                 {/* Customer Account */}
                 <div>

@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
       customer: sale.customer ? {
         name: sale.customer.name,
         phone: sale.customer.phone,
-        address: sale.customer.address
+        address: sale.customer.address,
+        balance: sale.customer.balance
       } : null,
       invoiceNumber: sale.invoiceNumber,
       paidAmount: sale.paidAmount,
@@ -230,6 +231,16 @@ export async function GET(request: NextRequest) {
       currentY += 5
       renderArabicText(pdfData.notes, margin, currentY, { align: 'left', maxWidth: contentWidth - 5 })
       currentY += 8
+    }
+
+    // Customer debt info (if customer exists)
+    if (pdfData.customer && pdfData.customer.balance !== undefined) {
+      const balance = parseFloat(pdfData.customer.balance)
+      if (balance !== 0) {
+        doc.setFontSize(9)
+        renderArabicText(`مديونية العميل: ${formatCurrency(balance)}`, pageWidth - margin, currentY, { align: 'right' })
+        currentY += 6
+      }
     }
 
     // Footer
@@ -422,6 +433,16 @@ export async function POST(request: NextRequest) {
       currentY += 5
       renderArabicText(notes, margin, currentY, { align: 'left', maxWidth: contentWidth - 5 })
       currentY += 8
+    }
+
+    // 🔹 Customer debt info (if customer exists)
+    if (customer && customer.balance !== undefined) {
+      const balance = parseFloat(customer.balance)
+      if (balance !== 0) {
+        doc.setFontSize(9)
+        renderArabicText(`مديونية العميل: ${formatCurrency(balance)}`, pageWidth - margin, currentY, { align: 'right' })
+        currentY += 6
+      }
     }
 
     // 🔹 Footer

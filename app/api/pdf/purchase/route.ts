@@ -28,213 +28,158 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create PDF document
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    })
+    // Create PDF document - same format as sales invoices
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let currentY = 5
+    const margin = 2
+    const contentWidth = pageWidth - margin * 2
 
-    // Set RTL text direction and Arabic font support
-    doc.setR2L(true)
-    
-    // Load custom Arabic font using jsPDF's proper font loading mechanism
+    // Arabic font without RTL mode to avoid text reversal (same as sales)
     try {
       const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
-      const fontBuffer = readFileSync(fontPath)
-      
-      // Add the font to jsPDF's virtual file system
-      doc.addFileToVFS('Amiri-Regular.ttf', fontBuffer.toString('base64'))
+      const font = readFileSync(fontPath)
+      doc.addFileToVFS('Amiri-Regular.ttf', font.toString('base64'))
       doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
-      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
       doc.setFont('Amiri', 'normal')
-      console.log('Custom font loaded successfully')
-    } catch (fontError) {
-      console.warn('Could not load custom font, using default:', fontError)
-      // Fallback to default font
-      doc.setFont('Amiri', 'normal')
+    } catch {
+      console.warn('⚠️ Could not load Arabic font, using default')
     }
 
-    // Page dimensions
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 20
-    const contentWidth = pageWidth - (margin * 2)
-
-    // Helper function to format currency
-    const formatCurrency = (amount: number) => {
-      const englishNumerals = amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-      return `${englishNumerals} ج.م`
+    // Helper function to properly render Arabic text (same as sales)
+    const renderArabicText = (text: string, x: number, y: number, options: any = {}) => {
+      // Just render the text normally without RTL mode
+      doc.text(text, x, y, options)
     }
 
-    // Helper function to get payment method text
+    // Helper function to format currency (same as sales)
+    const formatCurrency = (amount: number) =>
+      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+    // Helper function to get payment method text (same as sales)
     const getPaymentMethodText = (method: string) => {
-      const paymentMethods: { [key: string]: string } = {
-        'cash': 'نقدي',
-        'card': 'بطاقة',
-        'bank_transfer': 'تحويل بنكي',
-        'check': 'شيك',
-        'credit': 'آجل',
-        'CASH': 'نقدي',
-        'CARD': 'بطاقة',
-        'BANK_TRANSFER': 'تحويل بنكي',
-        'CHECK': 'شيك',
-        'CREDIT': 'آجل'
+      const map: Record<string, string> = {
+        cash: 'نقدي', card: 'بطاقة', bank_transfer: 'تحويل', check: 'شيك', credit: 'آجل'
       }
-      return paymentMethods[method] || method
+      return map[method.toLowerCase()] || method
     }
 
-    // Helper function to format date
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('ar-EG', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    }
+    // Helper function to format date (same as sales)
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
 
-    let currentY = margin
-
-    // Header
-    doc.setFontSize(20)
-    doc.setTextColor(44, 90, 160)
-    const headerText = isPurchaseRequest ? 'طلب شراء' : 'فاتورة مشتريات'
-    doc.text(headerText, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 15
-
-    // Invoice number and date
+    // Header (same as sales)
     doc.setFontSize(12)
-    doc.setTextColor(0, 0, 0)
-    doc.text(`رقم الفاتورة: ${invoiceNumber}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    doc.text(`التاريخ: ${formatDate(new Date())}`, margin, currentY, { align: 'left', isInputRtl: true })
-    currentY += 20
+    renderArabicText(isPurchaseRequest ? 'طلب شراء' : 'فاتورة مشتريات', pageWidth / 2, currentY, { align: 'center' })
+    currentY += 8
 
-    // Items table header
-    doc.setFontSize(14)
-    doc.setTextColor(44, 90, 160)
-    doc.text('تفاصيل الفاتورة', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 15
+    doc.setFontSize(9)
+    renderArabicText(`رقم الفاتورة: ${invoiceNumber}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 5
+    renderArabicText(`التاريخ: ${formatDate(new Date())}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
 
-     // Payment method info - moved here below تفاصيل الفاتورة
-     doc.setFontSize(12)
-     doc.setTextColor(44, 90, 160)
-     doc.text('معلومات الدفع', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-     currentY += 15
+    // Items table (same format as sales)
+    currentY += 5
+    doc.setFontSize(8)
+    renderArabicText('تفاصيل الفاتورة', pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
 
-     // Calculate final amount for payment info
-     const calculatedTotal = totalAmount ? Number(totalAmount) : 0
+    // Table headers (flipped order: Total, Price, Quantity, Product from left to right)
+    const colWidths = [12, 8, 6, 25] // Total, Price, Quantity, Product
+    const colPositions = [
+      margin, // Total column starts at margin
+      margin + colWidths[0], // Price column starts after Total
+      margin + colWidths[0] + colWidths[1], // Quantity column starts after Price
+      margin + colWidths[0] + colWidths[1] + colWidths[2] // Product column starts after Quantity
+    ]
 
-     doc.setFontSize(10)
-     doc.setTextColor(0, 0, 0)
-     doc.text(`المدفوع: ${formatCurrency(Number(paidAmount || 0))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-     currentY += 10
-     doc.text(`الباقي: ${formatCurrency(Number(calculatedTotal) - Number(paidAmount || 0))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-     currentY += 10
-     doc.text(`طريقة الدفع: ${getPaymentMethodText(paymentMethod)}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-     currentY += 20
+    // Draw table borders
+    doc.setLineWidth(0.1)
+    doc.setDrawColor(0, 0, 0)
+    
+    // Header text (flipped order) with proper alignment
+    doc.setFontSize(7)
+    renderArabicText('الإجمالي', colPositions[0] + colWidths[0] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('السعر', colPositions[1] + colWidths[1] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('الكمية', colPositions[2] + colWidths[2] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('المنتج', colPositions[3] + colWidths[3] - 2, currentY + 5, { align: 'right' })
 
-    // Table headers - Remove م column, reorder: Total, Discount, Price, Quantity, Product
-    const colWidths = [30, 30, 30, 30, 50] // Total, Discount, Price, Quantity, Product
-    const colPositions = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1], 
-                         margin + colWidths[0] + colWidths[1] + colWidths[2],
-                         margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]]
+    // Draw header border with vertical lines
+    doc.rect(margin, currentY, contentWidth, 8)
+    // Vertical lines
+    doc.line(colPositions[1], currentY, colPositions[1], currentY + 8)
+    doc.line(colPositions[2], currentY, colPositions[2], currentY + 8)
+    doc.line(colPositions[3], currentY, colPositions[3], currentY + 8)
+    currentY += 8 // No gap
 
-    // Header background
-    doc.setFillColor(240, 240, 240)
-    doc.rect(margin, currentY, contentWidth, 15, 'F')
-
-    // Header text - reordered from left to right: Total, Discount, Price, Quantity, Product
-    doc.setFontSize(10)
-    doc.setTextColor(0, 0, 0)
-    doc.setFont('Amiri', 'normal')
-    doc.text('الإجمالي', colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('الخصم', colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('السعر', colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('الكمية', colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('المنتج', colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-
-    currentY += 20
-
-    // Items rows
-    doc.setFont('Amiri', 'normal')
-    let itemsTotalAmount = 0
-    let itemsTotalDiscount = 0
-
+    // Items rows (no background, with borders and vertical lines)
     items.forEach((item: any, index: number) => {
-      // Check if we need a new page
-      if (currentY + 15 > pageHeight - margin - 50) {
-        doc.addPage()
-        currentY = margin
-      }
-
       const itemTotal = Number(item.price) * item.quantity - Number(item.discount || 0)
-      itemsTotalAmount += itemTotal
-      itemsTotalDiscount += Number(item.discount || 0)
+      
+      // Row data (flipped order) with proper alignment
+      doc.setFontSize(7)
+      // Total column - right aligned
+      renderArabicText(formatCurrency(itemTotal), colPositions[0] + colWidths[0] - 2, currentY + 5, { align: 'right' })
+      // Price column - right aligned
+      renderArabicText(formatCurrency(Number(item.price)), colPositions[1] + colWidths[1] - 2, currentY + 5, { align: 'right' })
+      // Quantity column - center aligned
+      renderArabicText(item.quantity.toString(), colPositions[2] + colWidths[2]/2, currentY + 5, { align: 'center' })
+      // Product column - right aligned (Arabic text) - positioned correctly within its column
+      renderArabicText(`${item.productName || item.name}`, colPositions[3] + colWidths[3] - 2, currentY + 5, { align: 'right' })
 
-      // Row background (alternating)
-      if (index % 2 === 0) {
-        doc.setFillColor(250, 250, 250)
-        doc.rect(margin, currentY, contentWidth, 15, 'F')
-      }
-
-      // Row data - reordered to match headers: Total, Discount, Price, Quantity, Product
-      doc.setFontSize(9)
-      doc.setTextColor(0, 0, 0)
-      doc.text(formatCurrency(itemTotal), colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(formatCurrency(Number(item.discount || 0)), colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(formatCurrency(Number(item.price)), colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(item.quantity.toString(), colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(item.productName || item.name, colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-
-      currentY += 15
+      // Draw row border with vertical lines
+      doc.rect(margin, currentY, contentWidth, 8)
+      // Vertical lines
+      doc.line(colPositions[1], currentY, colPositions[1], currentY + 8)
+      doc.line(colPositions[2], currentY, colPositions[2], currentY + 8)
+      doc.line(colPositions[3], currentY, colPositions[3], currentY + 8)
+      currentY += 8
     })
 
-     // Calculate totals
-     const taxRate = 0.14 // 14% tax rate
-     const taxAmount = itemsTotalAmount * taxRate
-     const discountAmount = itemsTotalDiscount
-     const finalTotal = itemsTotalAmount + taxAmount - discountAmount
+    // Calculate totals (same as sales)
+    const itemsTotalAmount = items.reduce((sum: number, item: any) => {
+      return sum + (Number(item.price) * item.quantity - Number(item.discount || 0))
+    }, 0)
+    
+    const taxRate = 0.14 // 14% tax rate
+    const taxAmount = itemsTotalAmount * taxRate
+    const discountAmount = items.reduce((sum: number, item: any) => sum + Number(item.discount || 0), 0)
+    const finalTotal = itemsTotalAmount + taxAmount - discountAmount
 
-     // Use provided totalAmount if available, otherwise use calculated
-     const finalAmount = totalAmount ? Number(totalAmount) : finalTotal
+    // Use provided totalAmount if available, otherwise use calculated
+    const finalAmount = totalAmount ? Number(totalAmount) : finalTotal
 
-     // Totals section
-     currentY += 10
-     doc.setFontSize(12)
-     doc.setTextColor(0, 0, 0)
-     doc.text(`الإجمالي النهائي: ${formatCurrency(finalAmount)}`, pageWidth - margin, currentY + 15, { align: 'right', isInputRtl: true })
-     if (taxAmount > 0) {
-       doc.text(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY + 30, { align: 'right', isInputRtl: true })
-     }
-     if (discountAmount > 0) {
-       doc.text(`الخصم: ${formatCurrency(discountAmount)}`, pageWidth - margin, currentY + 45, { align: 'right', isInputRtl: true })
-     }
+    // Totals section (same as sales format)
+    currentY += 5
+    if (taxAmount > 0) {
+      renderArabicText(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 4
+    }
+    doc.setFontSize(10)
+    renderArabicText(`الإجمالي: ${formatCurrency(finalAmount)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
 
-    // Notes - moved to left side opposite to الإجمالي النهائي
+    // Payment info (same as sales with proper spacing)
+    if (paidAmount && Number(paidAmount) > 0) {
+      renderArabicText(`المدفوع: ${formatCurrency(Number(paidAmount))}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 6
+      renderArabicText(`الباقي: ${formatCurrency(Number(finalAmount) - Number(paidAmount))}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 6
+    }
+    
+    renderArabicText(`طريقة الدفع: ${getPaymentMethodText(paymentMethod)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
+
+    // Notes (same as sales)
     if (notes) {
-      // Check if we have enough space for notes, if not, reduce spacing
-      if (currentY + 30 > pageHeight - margin) {
-        currentY = pageHeight - margin - 30
-      }
-
-      doc.setFontSize(12)
-      doc.setTextColor(44, 90, 160)
-      doc.text('ملاحظات', margin, currentY + 15, { align: 'left', isInputRtl: true })
-
-      doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
-      doc.text(notes, margin, currentY + 30, { align: 'left', isInputRtl: true })
+      renderArabicText(`ملاحظة: ${notes}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 8
     }
 
-    // Footer
-    const footerY = pageHeight - 20
+    // Footer (same as sales)
     doc.setFontSize(8)
-    doc.setTextColor(128, 128, 128)
-    const footerText = isPurchaseRequest ? 'طلب شراء - غير ملزم' : 'شكراً لتعاملكم معنا'
-    doc.text(footerText, pageWidth / 2, footerY, { align: 'center', isInputRtl: true })
+    renderArabicText(isPurchaseRequest ? 'طلب شراء - غير ملزم' : 'شكراً لتعاملكم معنا', pageWidth / 2, currentY, { align: 'center' })
 
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
@@ -301,224 +246,169 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Create PDF document
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    })
+    // Create PDF document - same format as sales invoices
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let currentY = 5
+    const margin = 2
+    const contentWidth = pageWidth - margin * 2
 
-    // Set RTL text direction and Arabic font support
-    doc.setR2L(true)
-    
-    // Load custom Arabic font
+    // Arabic font without RTL mode to avoid text reversal (same as sales)
     try {
       const fontPath = join(process.cwd(), 'public', 'fonts', 'Amiri-Regular.ttf')
-      const fontBuffer = readFileSync(fontPath)
-      doc.addFileToVFS('Amiri-Regular.ttf', fontBuffer.toString('base64'))
+      const font = readFileSync(fontPath)
+      doc.addFileToVFS('Amiri-Regular.ttf', font.toString('base64'))
       doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
-      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
       doc.setFont('Amiri', 'normal')
-    } catch (fontError) {
-      console.warn('Could not load custom font, using default:', fontError)
-      doc.setFont('helvetica', 'normal')
+    } catch {
+      console.warn('⚠️ Could not load Arabic font, using default')
     }
 
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 20
-    const contentWidth = pageWidth - (margin * 2)
-
-    // Helper function to format currency
-    const formatCurrency = (amount: number) => {
-      const englishNumerals = amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-      return `${englishNumerals} ج.م`
+    // Helper function to properly render Arabic text (same as sales)
+    const renderArabicText = (text: string, x: number, y: number, options: any = {}) => {
+      // Just render the text normally without RTL mode
+      doc.text(text, x, y, options)
     }
 
-    // Helper function to get payment method text
+    // Helper function to format currency (same as sales)
+    const formatCurrency = (amount: number) =>
+      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+    // Helper function to get payment method text (same as sales)
     const getPaymentMethodText = (method: string) => {
-      const paymentMethods: { [key: string]: string } = {
-        'cash': 'نقدي',
-        'card': 'بطاقة',
-        'bank_transfer': 'تحويل بنكي',
-        'check': 'شيك',
-        'credit': 'آجل',
-        'CASH': 'نقدي',
-        'CARD': 'بطاقة',
-        'BANK_TRANSFER': 'تحويل بنكي',
-        'CHECK': 'شيك',
-        'CREDIT': 'آجل'
+      const map: Record<string, string> = {
+        cash: 'نقدي', card: 'بطاقة', bank_transfer: 'تحويل', check: 'شيك', credit: 'آجل'
       }
-      return paymentMethods[method] || method
+      return map[method.toLowerCase()] || method
     }
 
-    // Helper function to format date
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('ar-EG', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    }
+    // Helper function to format date (same as sales)
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
 
-    let currentY = margin
-
-    // Header
-    doc.setFontSize(20)
-    doc.setTextColor(44, 90, 160)
-    doc.text('فاتورة مشتريات', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 15
-
-    // Invoice number and date
+    // Header (same as sales)
     doc.setFontSize(12)
-    doc.setTextColor(0, 0, 0)
-    doc.text(`رقم الفاتورة: ${purchase.invoiceNumber}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    doc.text(`التاريخ: ${formatDate(purchase.createdAt)}`, margin, currentY, { align: 'left', isInputRtl: true })
-    currentY += 20
+    renderArabicText('فاتورة مشتريات', pageWidth / 2, currentY, { align: 'center' })
+    currentY += 8
 
-    // Supplier information
+    doc.setFontSize(9)
+    renderArabicText(`رقم الفاتورة: ${purchase.invoiceNumber}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 5
+    renderArabicText(`التاريخ: ${formatDate(purchase.createdAt)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
+
+    // Supplier information (same as sales format)
     if (purchase.supplier) {
-      doc.setFontSize(12)
-      doc.setTextColor(44, 90, 160)
-      doc.text('بيانات المورد', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-      currentY += 10
-
-      doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
-      doc.text(`الاسم: ${purchase.supplier.name}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-      currentY += 8
-
+      renderArabicText(`المورد: ${purchase.supplier.name}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 4
       if (purchase.supplier.phone) {
-        doc.text(`الهاتف: ${purchase.supplier.phone}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-        currentY += 8
+        renderArabicText(`الهاتف: ${purchase.supplier.phone}`, pageWidth - margin, currentY, { align: 'right' })
+        currentY += 4
       }
-
       if (purchase.supplier.address) {
-        doc.text(`العنوان: ${purchase.supplier.address}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-        currentY += 8
+        renderArabicText(`العنوان: ${purchase.supplier.address}`, pageWidth - margin, currentY, { align: 'right' })
+        currentY += 4
       }
-
-      currentY += 10
+      currentY += 4
     }
 
-    // Items table header
-    doc.setFontSize(14)
-    doc.setTextColor(44, 90, 160)
-    doc.text('تفاصيل الفاتورة', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 15
+    // Items table (same format as sales)
+    currentY += 5
+    doc.setFontSize(8)
+    renderArabicText('تفاصيل الفاتورة', pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
 
-    // Payment method info
-    doc.setFontSize(12)
-    doc.setTextColor(44, 90, 160)
-    doc.text('معلومات الدفع', pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 15
+    // Table headers (flipped order: Total, Price, Quantity, Product from left to right)
+    const colWidths = [12, 8, 6, 25] // Total, Price, Quantity, Product
+    const colPositions = [
+      margin, // Total column starts at margin
+      margin + colWidths[0], // Price column starts after Total
+      margin + colWidths[0] + colWidths[1], // Quantity column starts after Price
+      margin + colWidths[0] + colWidths[1] + colWidths[2] // Product column starts after Quantity
+    ]
 
-    doc.setFontSize(10)
-    doc.setTextColor(0, 0, 0)
-    doc.text(`المدفوع: ${formatCurrency(Number(purchase.paidAmount))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 10
-    doc.text(`الباقي: ${formatCurrency(Number(purchase.totalAmount) - Number(purchase.paidAmount))}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 10
-    doc.text(`طريقة الدفع: ${getPaymentMethodText(purchase.paymentMethod)}`, pageWidth - margin, currentY, { align: 'right', isInputRtl: true })
-    currentY += 20
+    // Draw table borders
+    doc.setLineWidth(0.1)
+    doc.setDrawColor(0, 0, 0)
+    
+    // Header text (flipped order) with proper alignment
+    doc.setFontSize(7)
+    renderArabicText('الإجمالي', colPositions[0] + colWidths[0] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('السعر', colPositions[1] + colWidths[1] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('الكمية', colPositions[2] + colWidths[2] - 2, currentY + 5, { align: 'right' })
+    renderArabicText('المنتج', colPositions[3] + colWidths[3] - 2, currentY + 5, { align: 'right' })
 
-    // Table headers
-    const colWidths = [30, 30, 30, 30, 50] // Total, Discount, Price, Quantity, Product
-    const colPositions = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1], 
-                         margin + colWidths[0] + colWidths[1] + colWidths[2],
-                         margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]]
+    // Draw header border with vertical lines
+    doc.rect(margin, currentY, contentWidth, 8)
+    // Vertical lines
+    doc.line(colPositions[1], currentY, colPositions[1], currentY + 8)
+    doc.line(colPositions[2], currentY, colPositions[2], currentY + 8)
+    doc.line(colPositions[3], currentY, colPositions[3], currentY + 8)
+    currentY += 8 // No gap
 
-    // Header background
-    doc.setFillColor(240, 240, 240)
-    doc.rect(margin, currentY, contentWidth, 15, 'F')
-
-    // Header text
-    doc.setFontSize(10)
-    doc.setTextColor(0, 0, 0)
-    doc.setFont('Amiri', 'normal')
-    doc.text('الإجمالي', colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('الخصم', colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('السعر', colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('الكمية', colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-    doc.text('المنتج', colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-
-    currentY += 20
-
-    // Items rows
-    doc.setFont('Amiri', 'normal')
-    let itemsTotalAmount = 0
-    let itemsTotalDiscount = 0
-
+    // Items rows (no background, with borders and vertical lines)
     purchase.items.forEach((item: any, index: number) => {
-      // Check if we need a new page
-      if (currentY + 15 > pageHeight - margin - 50) {
-        doc.addPage()
-        currentY = margin
-      }
+      const itemTotal = Number(item.price) * item.quantity - Number(item.discount || 0)
+      
+      // Row data (flipped order)
+      doc.setFontSize(7)
+      renderArabicText(formatCurrency(itemTotal), colPositions[0] + colWidths[0] - 2, currentY + 5, { align: 'right' })
+      renderArabicText(formatCurrency(Number(item.price)), colPositions[1] + colWidths[1] - 2, currentY + 5, { align: 'right' })
+      renderArabicText(item.quantity.toString(), colPositions[2] + colWidths[2] - 2, currentY + 5, { align: 'right' })
+      renderArabicText(`${item.product.name}`, colPositions[3] + colWidths[3] - 2, currentY + 5, { align: 'right' })
 
-      const itemTotal = Number(item.price) * item.quantity - Number(item.discount)
-      itemsTotalAmount += itemTotal
-      itemsTotalDiscount += Number(item.discount)
-
-      // Row background (alternating)
-      if (index % 2 === 0) {
-        doc.setFillColor(250, 250, 250)
-        doc.rect(margin, currentY, contentWidth, 15, 'F')
-      }
-
-      // Row data
-      doc.setFontSize(9)
-      doc.setTextColor(0, 0, 0)
-      doc.text(formatCurrency(itemTotal), colPositions[0] + colWidths[0] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(formatCurrency(Number(item.discount)), colPositions[1] + colWidths[1] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(formatCurrency(Number(item.price)), colPositions[2] + colWidths[2] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(item.quantity.toString(), colPositions[3] + colWidths[3] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-      doc.text(item.product.name, colPositions[4] + colWidths[4] - 5, currentY + 10, { align: 'right', isInputRtl: true })
-
-      currentY += 15
+      // Draw row border with vertical lines
+      doc.rect(margin, currentY, contentWidth, 8)
+      // Vertical lines
+      doc.line(colPositions[1], currentY, colPositions[1], currentY + 8)
+      doc.line(colPositions[2], currentY, colPositions[2], currentY + 8)
+      doc.line(colPositions[3], currentY, colPositions[3], currentY + 8)
+      currentY += 8
     })
 
-    // Calculate totals
-    const taxRate = 0.14
+    // Calculate totals (same as sales)
+    const itemsTotalAmount = purchase.items.reduce((sum: number, item: any) => {
+      return sum + (Number(item.price) * item.quantity - Number(item.discount || 0))
+    }, 0)
+    
+    const taxRate = 0.14 // 14% tax rate
     const taxAmount = itemsTotalAmount * taxRate
-    const discountAmount = itemsTotalDiscount
+    const discountAmount = purchase.items.reduce((sum: number, item: any) => sum + Number(item.discount || 0), 0)
     const finalTotal = itemsTotalAmount + taxAmount - discountAmount
 
-    // Totals section
-    currentY += 10
-    doc.setFontSize(12)
-    doc.setTextColor(0, 0, 0)
-    doc.text(`الإجمالي النهائي: ${formatCurrency(Number(purchase.totalAmount))}`, pageWidth - margin, currentY + 15, { align: 'right', isInputRtl: true })
+    // Use provided totalAmount if available, otherwise use calculated
+    const finalAmount = purchase.totalAmount ? Number(purchase.totalAmount) : finalTotal
+
+    // Totals section (same as sales format)
+    currentY += 5
     if (taxAmount > 0) {
-      doc.text(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY + 30, { align: 'right', isInputRtl: true })
+      renderArabicText(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 4
     }
-    if (discountAmount > 0) {
-      doc.text(`الخصم: ${formatCurrency(discountAmount)}`, pageWidth - margin, currentY + 45, { align: 'right', isInputRtl: true })
-    }
+    doc.setFontSize(10)
+    renderArabicText(`الإجمالي: ${formatCurrency(finalAmount)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
 
-    // Notes
+    // Payment info (same as sales with proper spacing)
+    if (purchase.paidAmount && Number(purchase.paidAmount) > 0) {
+      renderArabicText(`المدفوع: ${formatCurrency(Number(purchase.paidAmount))}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 6
+      renderArabicText(`الباقي: ${formatCurrency(Number(finalAmount) - Number(purchase.paidAmount))}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 6
+    }
+    
+    renderArabicText(`طريقة الدفع: ${getPaymentMethodText(purchase.paymentMethod)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 8
+
+    // Notes (same as sales)
     if (purchase.notes) {
-      if (currentY + 30 > pageHeight - margin) {
-        currentY = pageHeight - margin - 30
-      }
-
-      doc.setFontSize(12)
-      doc.setTextColor(44, 90, 160)
-      doc.text('ملاحظات', margin, currentY + 15, { align: 'left', isInputRtl: true })
-
-      doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
-      doc.text(purchase.notes, margin, currentY + 30, { align: 'left', isInputRtl: true })
+      renderArabicText(`ملاحظة: ${purchase.notes}`, pageWidth - margin, currentY, { align: 'right' })
+      currentY += 8
     }
 
-    // Footer
-    const footerY = pageHeight - 20
+    // Footer (same as sales)
     doc.setFontSize(8)
-    doc.setTextColor(128, 128, 128)
-    doc.text('شكراً لتعاملكم معنا', pageWidth / 2, footerY, { align: 'center', isInputRtl: true })
+    renderArabicText('شكراً لتعاملكم معنا', pageWidth / 2, currentY, { align: 'center' })
 
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))

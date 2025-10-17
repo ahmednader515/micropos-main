@@ -553,11 +553,13 @@ export default function PurchasesPage() {
     }
     
     const total = calculateTotal()
+    const taxAmount = calculateTax()
+    const totalWithTax = total + taxAmount
     setCheckoutForm(prev => ({
       ...prev,
-      total: total,
-      paid: total, // default paid equals total on open
-      remaining: total - total - prev.discount + prev.tax,
+      total: totalWithTax,
+      paid: totalWithTax, // default paid equals total with tax on open
+      remaining: totalWithTax - totalWithTax - prev.discount + prev.tax,
       supplierAccount: selectedSupplier?.name || '',
       previousBalance: selectedSupplier ? parseFloat(selectedSupplier.balance) : 0
     }))
@@ -1518,7 +1520,7 @@ export default function PurchasesPage() {
           {/* Bottom Bar with Totals */}
           <div className="flex items-center gap-4 p-2 sm:p-4 bg-gray-50 border-t">
             <div className="text-base sm:text-lg font-semibold">
-              الإجمالي: {formatCurrency(calculateTotal())}
+              الإجمالي + الضريبة: {formatCurrency(calculateTotal() + calculateTax())}
             </div>
             <div className="text-sm text-gray-600">
               ع.ق: {calculateTotalQuantity()}
@@ -1942,7 +1944,7 @@ export default function PurchasesPage() {
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">الإجمالي</label>
                   <div className="px-2 sm:px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium">
-                    {formatCurrency(checkoutForm.total)}
+                    {formatCurrency(calculateTotal() + calculateTax())}
                   </div>
                 </div>
 
@@ -1954,7 +1956,7 @@ export default function PurchasesPage() {
                     step="0.01"
                     min="0"
                     value={checkoutForm.paid || ''}
-                    placeholder="0.00"
+                    placeholder={formatCurrency(calculateTotal() + calculateTax())}
                     onChange={(e) => {
                       const paid = parseFloat(e.target.value) || 0
                       setCheckoutForm(prev => ({
