@@ -648,10 +648,12 @@ export default function SalesPage() {
     }
     
     const total = calculateTotal()
+    const taxAmount = calculateTax()
     setCheckoutForm(prev => ({
       ...prev,
       total: total,
-      remaining: total - prev.paid - prev.discount + prev.tax,
+      paid: total, // Default paid equals total on open
+      remaining: total - total - prev.discount + prev.tax, // will be adjusted if discount/tax change
       customerAccount: selectedCustomer?.name || '',
       previousBalance: selectedCustomer ? parseFloat(selectedCustomer.balance) : 0
     }))
@@ -676,6 +678,70 @@ export default function SalesPage() {
         setShowSuccessModal(true)
         // Don't clear the sale items for price display
         showNotification('success', 'تم عرض السعر بنجاح')
+        return
+      }
+
+      // Handle delivery note (اذن صرف): create invoice without confirming payment or decreasing stock
+      if (checkoutForm.paymentMethod === 'اذن صرف') {
+        // Prepare sale items for database
+        const saleItemsForDB = currentScreenItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount || 0,
+          total: item.price * item.quantity - (item.discount || 0)
+        }))
+
+        // Find customer ID if customer is selected
+        let customerId = null
+        if (selectedCustomer) {
+          customerId = selectedCustomer.id
+        } else if (checkoutForm.customerAccount.trim() !== '') {
+          const customer = customers.find(c => 
+            c.name.toLowerCase() === checkoutForm.customerAccount.toLowerCase()
+          )
+          if (customer) {
+            customerId = customer.id
+          }
+        }
+
+        const saleData = {
+          customerId,
+          totalAmount: checkoutForm.total,
+          paidAmount: 0, // explicitly zero for delivery note
+          discount: checkoutForm.discount,
+          tax: checkoutForm.tax,
+          paymentMethod: checkoutForm.paymentMethod,
+          notes: checkoutForm.note,
+          items: saleItemsForDB,
+          isDeliveryNote: true
+        }
+
+        const response = await fetch('/api/sales', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(saleData)
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'فشل في حفظ إذن الصرف')
+        }
+
+        const result = await response.json()
+
+        setInvoiceNumber(result.sale.invoiceNumber)
+        setSuccessModalCustomer(selectedCustomer)
+        setSuccessModalItems(currentScreenItems)
+        setSuccessModalTotal(calculateTotal())
+        setSuccessModalTax(calculateTax())
+        setShowCheckoutModal(false)
+        setShowSuccessModal(true)
+        setSaleItems(prev => ({ ...prev, [screenNumber]: [] }))
+
+        showNotification('success', result.message || 'تم إنشاء إذن الصرف بنجاح')
         return
       }
       
@@ -2113,6 +2179,17 @@ export default function SalesPage() {
                         className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                       />
                       <span className="text-sm text-gray-700">عرض سعر</span>
+                    </label>
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="اذن صرف"
+                        checked={checkoutForm.paymentMethod === 'اذن صرف'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">اذن صرف</span>
                     </label>
                 </div>
               </div>

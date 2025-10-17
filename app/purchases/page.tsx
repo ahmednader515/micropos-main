@@ -345,11 +345,14 @@ export default function PurchasesPage() {
             }
           }
         }}
-        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center ${
           selectedCategory === category.id
-            ? 'bg-green-100 border-2 border-green-300 text-green-800'
-            : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+            ? 'bg-green-100 border border-green-300 text-green-800'
+            : 'bg-gray-200 border border-black hover:bg-gray-300 text-gray-800'
         }`}
+        style={{
+          height: 'calc((100vh - 12rem) / 9)'
+        }}
       >
         <div className="font-medium text-gray-900 text-xs leading-tight">{category.name}</div>
       </button>
@@ -553,7 +556,8 @@ export default function PurchasesPage() {
     setCheckoutForm(prev => ({
       ...prev,
       total: total,
-      remaining: total - prev.paid - prev.discount + prev.tax,
+      paid: total, // default paid equals total on open
+      remaining: total - total - prev.discount + prev.tax,
       supplierAccount: selectedSupplier?.name || '',
       previousBalance: selectedSupplier ? parseFloat(selectedSupplier.balance) : 0
     }))
@@ -632,12 +636,13 @@ export default function PurchasesPage() {
       const purchaseData = {
         supplierId: supplierId || null,
         totalAmount: parseFloat(checkoutForm.total.toString()),
-        paidAmount: parseFloat(checkoutForm.paid.toString()) || 0,
+        paidAmount: checkoutForm.paymentMethod === 'اذن استلام' ? 0 : (parseFloat(checkoutForm.paid.toString()) || 0),
         discount: parseFloat(checkoutForm.discount.toString()) || 0,
         tax: parseFloat(checkoutForm.tax.toString()) || 0,
         paymentMethod: checkoutForm.paymentMethod,
         notes: checkoutForm.note || '',
-        items: purchaseItemsForDB
+        items: purchaseItemsForDB,
+        isReceiptNote: checkoutForm.paymentMethod === 'اذن استلام'
       }
 
       // Log the data being sent
@@ -1229,13 +1234,13 @@ export default function PurchasesPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })
-    return `${englishNumerals} ج.م`
+    return `${englishNumerals}`
   }
 
   const formatPriceInArabic = (amount: number) => {
     // Convert to English numerals
     const englishNumerals = amount.toLocaleString('en-US')
-    return `${englishNumerals} ج.م`
+    return `${englishNumerals}`
   }
 
   const getDisplayTotal = (item: PurchaseItem) => {
@@ -1352,8 +1357,11 @@ export default function PurchasesPage() {
           className="overflow-auto min-h-0 bg-gray-50"
           style={{
             height: showInlineProductSelection 
-              ? (showCategoryView ? 'calc(100vh - 50vh - 200px)' : 'calc(100vh - 35vh - 200px)')
-              : 'calc(100vh - 200px)'
+              ? (showCategoryView && showInlineProductSelection
+                  ? 'calc((100vh - 12rem) / 2.5)'
+                  : 'calc((100vh - 8rem) / 2.5)'
+                )
+              : 'calc(80vh)'
           }}
         >
           <div className="h-full overflow-y-auto">
@@ -1368,7 +1376,7 @@ export default function PurchasesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(purchaseItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)}>
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)} style={{ height: showInlineProductSelection ? (showCategoryView ? 'calc((100vh - 12rem) / 9)' : 'calc((100vh - 8rem) / 9)') : '100px' }}>
                     <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-4 text-gray-900 font-medium">
                       <div className="truncate max-w-xs text-xs sm:text-sm">{item.name}</div>
                     </td>
@@ -1390,22 +1398,32 @@ export default function PurchasesPage() {
 
         {/* Products and Categories Section - Slightly increased height */}
         {showInlineProductSelection && (
-          <div className={`fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 z-40 ${showCategoryView ? 'h-[50vh]' : 'h-[35vh]'}`} dir="rtl">
-            <div className="flex flex-col h-full">
-              {/* Products Grid - Always scrollable with proper height constraints */}
-              <div className={`overflow-y-auto min-h-0 ${showCategoryView ? 'h-1/2' : 'h-full'}`}>
-                <div className="p-4">
-                  <div className="grid grid-cols-3 gap-3">
+          <div className="fixed bottom-12 left-0 right-0 z-30" dir="rtl">
+            {/* Products Selection */}
+            <div className="bg-white">
+              <div 
+                className="overflow-y-auto flex-shrink-0"
+                style={{ 
+                  height: showCategoryView 
+                    ? 'calc((100vh - 12rem) / 4.1)'
+                    : 'calc((100vh - 8rem) / 1.9)'
+                }}
+              >
+                <div className="p-1">
+                  <div className="grid grid-cols-3 gap-1">
                     {getFilteredProducts().map(product => (
                       <button
                         key={product.id}
                         onClick={() => addProductToPurchase(product)}
-                        className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                        className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center ${
                           product.color 
-                            ? `bg-${product.color}-100 border-2 border-${product.color}-300 hover:bg-${product.color}-200`
-                            : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                            ? `bg-${product.color}-100 border border-${product.color}-300 hover:bg-${product.color}-200`
+                            : 'bg-white border border-gray-200 hover:bg-gray-50'
                         }`}
                         style={{
+                          height: showCategoryView 
+                            ? 'calc((100vh - 12rem) / 9)'
+                            : 'calc((100vh - 8rem) / 6)',
                           backgroundColor: product.color ? `${product.color}15` : undefined,
                           borderColor: product.color ? `${product.color}40` : undefined
                         }}
@@ -1418,22 +1436,21 @@ export default function PurchasesPage() {
                   </div>
                 </div>
               </div>
-              
-              {/* Categories Section - Scrollable */}
+              {/* Categories Section */}
               {showCategoryView && (
-                <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 h-1/2 overflow-y-auto">
-                  <div className="p-4">
-                    <div className="grid grid-cols-3 gap-3">
+                <div className="bg-gray-50 border-t border-gray-200 flex-shrink-0 overflow-y-auto" style={{ height: 'calc((100vh - 12rem) / 4.1)' }}>
+                  <div className="p-1">
+                    <div className="grid grid-cols-3 gap-1">
                       {!selectedParentCategory && (
                         <button
                           onClick={() => {
                             setSelectedCategory(null)
                             setSelectedParentCategory(null)
                           }}
-                          className={`p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md ${
+                          className={`p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md ${
                             selectedCategory === null && selectedParentCategory === null
-                              ? 'bg-green-100 border-2 border-green-300 text-green-800'
-                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700'
+                              ? 'bg-green-100 border border-green-300 text-green-800'
+                              : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
                           }`}
                         >
                           <div className="font-medium text-gray-900 text-xs leading-tight">الكل</div>
@@ -1446,7 +1463,7 @@ export default function PurchasesPage() {
                           {renderCategoryGrid(categories.find(cat => cat.id === selectedParentCategory)?.children || [], true)}
                           <button
                             onClick={() => setSelectedParentCategory(null)}
-                            className="p-3 rounded-lg text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border-2 border-blue-300 text-blue-800"
+                            className="p-1 rounded text-center transition-all duration-200 shadow-sm hover:shadow-md bg-blue-100 border border-blue-300 text-blue-800"
                           >
                             <div className="font-medium text-gray-900 text-xs leading-tight">← العودة</div>
                           </button>
@@ -1464,48 +1481,37 @@ export default function PurchasesPage() {
         )}
 
         {/* Action Buttons - Fixed above bottom bar */}
-        <div className="flex-shrink-0 fixed bottom-16 left-0 right-0 bg-gray-50 p-2 sm:p-4 z-50">
-          <div className="flex items-center justify-between">
-            {/* Add Products Button */}
-            <button
-              onClick={() => setShowInlineProductSelection(!showInlineProductSelection)}
-              className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300"
-              title="إضافة منتجات"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                />
-              </svg>
-            </button>
-            
-            {/* Categories Button - Only show when add button is clicked */}
-            {showInlineProductSelection && (
-              <button
-                onClick={() => setShowCategoryView(!showCategoryView)}
-                className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 ${
-                  showCategoryView ? 'bg-gray-100' : ''
-                }`}
-                title="الفئات"
-              >
-                <div className="w-5 h-5 border border-gray-400 rounded flex items-center justify-center">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  </svg>
-                </div>
-              </button>
-            )}
-          </div>
+        {/* Bottom toggle buttons to match sales */}
+        <div className="fixed bottom-12 right-2 z-40">
+          <button
+            onClick={() => {
+              const newShow = !showInlineProductSelection
+              setShowInlineProductSelection(newShow)
+              if (newShow) setShowCategoryView(true)
+            }}
+            className="p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-65"
+            title="إضافة منتجات"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+          </button>
         </div>
+        {showInlineProductSelection && (
+          <div className="fixed bottom-12 left-2 z-40">
+            <button
+              onClick={() => setShowCategoryView(!showCategoryView)}
+              className={`p-2 text-gray-700 hover:text-gray-900 transition-colors bg-white hover:bg-gray-100 rounded-lg border border-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center opacity-65 ${showCategoryView ? 'bg-gray-100' : ''}`}
+              title="الفئات"
+            >
+              <div className="w-5 h-5 border border-gray-400 rounded flex items-center justify-center">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Bottom Section - Fixed at bottom */}
         <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 bg-white z-50">
@@ -1917,6 +1923,17 @@ export default function PurchasesPage() {
                         className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                       />
                       <span className="text-sm text-gray-700">طلب شراء</span>
+                    </label>
+                    <label className="flex items-center whitespace-nowrap min-w-fit">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="اذن استلام"
+                        checked={checkoutForm.paymentMethod === 'اذن استلام'}
+                        onChange={(e) => setCheckoutForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        className="ml-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">اذن استلام</span>
                     </label>
                   </div>
                 </div>

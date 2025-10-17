@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       tax = 0,
       paymentMethod,
       notes,
-      items
+      items,
+      isDeliveryNote
     } = body
 
     // Validate required fields
@@ -74,24 +75,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate stock availability for all items
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
-      })
-      
-      if (!product) {
-        return NextResponse.json(
-          { error: `المنتج غير موجود: ${item.productId}` },
-          { status: 400 }
-        )
-      }
-      
-      if (product.stock < item.quantity) {
-        return NextResponse.json(
-          { error: `الكمية المطلوبة (${item.quantity}) تتجاوز المخزون المتاح (${product.stock}) للمنتج: ${product.name}` },
-          { status: 400 }
-        )
+    // Validate stock availability for all items unless delivery note (no stock decrement)
+    if (!isDeliveryNote) {
+      for (const item of items) {
+        const product = await prisma.product.findUnique({
+          where: { id: item.productId }
+        })
+        
+        if (!product) {
+          return NextResponse.json(
+            { error: `المنتج غير موجود: ${item.productId}` },
+            { status: 400 }
+          )
+        }
+        
+        if (product.stock < item.quantity) {
+          return NextResponse.json(
+            { error: `الكمية المطلوبة (${item.quantity}) تتجاوز المخزون المتاح (${product.stock}) للمنتج: ${product.name}` },
+            { status: 400 }
+          )
+        }
       }
     }
 
@@ -204,18 +207,19 @@ export async function POST(request: NextRequest) {
     // Normalize payment method
     const normalizedPayment = normalizePaymentMethod(paymentMethod)
 
-    // Create the sale with items (normal case)
+    // Create the sale with items (normal case or delivery note)
     const sale = await prisma.sale.create({
       data: {
         invoiceNumber: generatedInvoiceNumber,
         customerId: customerId || null,
         userId: session.user.id,
         totalAmount,
-        paidAmount: paidAmount || 0,
+        paidAmount: isDeliveryNote ? 0 : (paidAmount || 0),
         discount: discount || 0,
         tax,
         paymentMethod: normalizedPayment,
         notes,
+        status: isDeliveryNote ? 'PENDING' : 'COMPLETED',
         items: {
           create: items.map((item: any) => ({
             productId: item.productId,
@@ -236,16 +240,18 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Update product stock
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.quantity
+    // Update product stock unless it's a delivery note
+    if (!isDeliveryNote) {
+      for (const item of items) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity
+            }
           }
-        }
-      })
+        })
+      }
     }
 
     // Update customer balance if customer exists
@@ -263,16 +269,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create cashbox transaction for income
+    // Create cashbox transaction for income unless delivery note
+    if (!isDeliveryNote) {
       await prisma.cashboxTransaction.create({
         data: {
           type: 'INCOME',
-        amount: paidAmount || 0,
-        description: `فاتورة مبيعات ${generatedInvoiceNumber}`,
+          amount: paidAmount || 0,
+          description: `فاتورة مبيعات ${generatedInvoiceNumber}`,
           reference: sale.id,
-        paymentMethod: normalizedPayment
+          paymentMethod: normalizedPayment
         }
       })
+    }
 
     return NextResponse.json({
       success: true,

@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     // Helpers
     const formatCurrency = (amount: number) =>
-      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} ج.م`
+      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
     const getPaymentMethodText = (method: string) => {
       const map: Record<string, string> = {
@@ -99,7 +99,8 @@ export async function GET(request: NextRequest) {
 
     // Header
     doc.setFontSize(12)
-    renderArabicText('فاتورة مبيعات', pageWidth / 2, currentY, { align: 'center' })
+    const isDeliveryNote = sale.status === 'PENDING' && Number(sale.paidAmount || 0) === 0
+    renderArabicText(isDeliveryNote ? 'اذن صرف' : 'فاتورة مبيعات', pageWidth / 2, currentY, { align: 'center' })
     currentY += 8
 
     doc.setFontSize(9)
@@ -124,30 +125,76 @@ export async function GET(request: NextRequest) {
       currentY += 5
     }
 
-    // Items
+    // Items (tabular layout)
     doc.setFontSize(10)
     renderArabicText('تفاصيل الفاتورة:', pageWidth - margin, currentY, { align: 'right' })
     currentY += 6
 
+    // Define columns (RTL): [Total | Price | Qty | Name]
+    const tableMargin = margin
+    // Adjusted widths to give more space between الكمية and السعر by taking from المنتج
+    const colNameWidth = contentWidth * 0.48
+    const colQtyWidth = contentWidth * 0.14
+    const colPriceWidth = contentWidth * 0.20
+    const colTotalWidth = contentWidth * 0.18
+    const colXName = tableMargin + contentWidth
+    const colXQty = colXName - colNameWidth
+    const colXPrice = colXQty - colQtyWidth
+    const colXTotal = colXPrice - colPriceWidth
+
+    // Header row
+    doc.setFontSize(9)
+    doc.setLineWidth(0.2)
+    // Draw header background line
+    doc.line(tableMargin, currentY, tableMargin + contentWidth, currentY)
+    const tableTopY = currentY
+    currentY += 4
+    renderArabicText('المنتج', colXName - 1, currentY, { align: 'right' })
+    renderArabicText('الكمية', colXQty - 1, currentY, { align: 'right' })
+    renderArabicText('السعر', colXPrice - 1, currentY, { align: 'right' })
+    renderArabicText('الإجمالي', colXTotal - 1, currentY, { align: 'right' })
+    currentY += 3
+    doc.line(tableMargin, currentY, tableMargin + contentWidth, currentY)
+    const tableHeaderBottomY = currentY
+
     let totalAmount = 0
     let totalDiscount = 0
+    const rowHeight = 6
 
-    pdfData.items.forEach((item: any, i: number) => {
-      const itemTotal = Number(item.price) * item.quantity - Number(item.discount || 0)
+    pdfData.items.forEach((item: any) => {
+      const lineTotal = Number(item.price) * item.quantity
+      const itemTotal = lineTotal - Number(item.discount || 0)
       totalAmount += itemTotal
       totalDiscount += Number(item.discount || 0)
 
-      doc.setFontSize(8)
-      renderArabicText(`${item.name}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 4
-      renderArabicText(
-        `${item.quantity} × ${formatCurrency(item.price)} = ${formatCurrency(itemTotal)}`,
-        pageWidth - margin,
-        currentY,
-        { align: 'right' }
-      )
-      currentY += 6
+      doc.setFontSize(8)
+      // Item name (truncate if too long)
+      const nameText = String(item.name || '')
+      renderArabicText(nameText, colXName - 1, currentY, { align: 'right', maxWidth: colNameWidth - 2 })
+      // Qty, Price, Total
+      renderArabicText(String(item.quantity), colXQty - 1, currentY, { align: 'right' })
+      renderArabicText(formatCurrency(Number(item.price)), colXPrice - 1, currentY, { align: 'right' })
+      renderArabicText(formatCurrency(itemTotal), colXTotal - 1, currentY, { align: 'right' })
+      currentY += rowHeight - 4
+      // Row separator
+      doc.setLineWidth(0.1)
+      doc.line(tableMargin, currentY, tableMargin + contentWidth, currentY)
     })
+
+    // Add spacing after table (no extra line) and draw vertical lines
+    const tableBottomY = currentY
+    // vertical lines at left edge, total, price, qty, and right edge
+    doc.setLineWidth(0.2)
+    const xLeft = tableMargin
+    const xRight = tableMargin + contentWidth
+    doc.line(xLeft, tableTopY, xLeft, tableBottomY)
+    doc.line(colXTotal, tableTopY, colXTotal, tableBottomY)
+    doc.line(colXPrice, tableTopY, colXPrice, tableBottomY)
+    doc.line(colXQty, tableTopY, colXQty, tableBottomY)
+    doc.line(xRight, tableTopY, xRight, tableBottomY)
+
+    currentY += 10
 
     // Totals
     const taxRate = 0.14
@@ -155,12 +202,12 @@ export async function GET(request: NextRequest) {
     const finalTotal = totalAmount + taxAmount - totalDiscount
 
     doc.setFontSize(10)
-    renderArabicText(`الإجمالي: ${formatCurrency(finalTotal)}`, pageWidth - margin, currentY, { align: 'right' })
-    currentY += 5
     if (taxAmount > 0) {
       renderArabicText(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 5
     }
+    renderArabicText(`الإجمالي: ${formatCurrency(finalTotal)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 5
     if (totalDiscount > 0) {
       renderArabicText(`الخصم: ${formatCurrency(totalDiscount)}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 5
@@ -173,7 +220,7 @@ export async function GET(request: NextRequest) {
     currentY += 5
     renderArabicText(`الباقي: ${formatCurrency(finalTotal - Number(pdfData.paidAmount || 0))}`, pageWidth - margin, currentY, { align: 'right' })
     currentY += 5
-    renderArabicText(`طريقة الدفع: ${getPaymentMethodText(pdfData.paymentMethod)}`, pageWidth - margin, currentY, { align: 'right' })
+    renderArabicText(`طريقة الدفع: ${isDeliveryNote ? 'اذن صرف' : getPaymentMethodText(pdfData.paymentMethod)}`, pageWidth - margin, currentY, { align: 'right' })
     currentY += 8
 
     // Notes
@@ -238,7 +285,7 @@ export async function POST(request: NextRequest) {
 
     // Helpers
     const formatCurrency = (amount: number) =>
-      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} ج.م`
+      `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
     const getPaymentMethodText = (method: string) => {
       const map: Record<string, string> = {
@@ -277,30 +324,69 @@ export async function POST(request: NextRequest) {
       currentY += 5
     }
 
-    // 🔹 Items
+    // 🔹 Items (tabular layout)
     doc.setFontSize(10)
     renderArabicText('تفاصيل الفاتورة:', pageWidth - margin, currentY, { align: 'right' })
     currentY += 6
 
+    // Define columns (RTL): [Total | Price | Qty | Name]
+    const tableMargin2 = margin
+    // Adjusted widths to give more space between الكمية and السعر by taking from المنتج
+    const colNameWidth2 = contentWidth * 0.48
+    const colQtyWidth2 = contentWidth * 0.14
+    const colPriceWidth2 = contentWidth * 0.20
+    const colTotalWidth2 = contentWidth * 0.18
+    const colXName2 = tableMargin2 + contentWidth
+    const colXQty2 = colXName2 - colNameWidth2
+    const colXPrice2 = colXQty2 - colQtyWidth2
+    const colXTotal2 = colXPrice2 - colPriceWidth2
+
+    // Header row
+    doc.setFontSize(9)
+    doc.setLineWidth(0.2)
+    doc.line(tableMargin2, currentY, tableMargin2 + contentWidth, currentY)
+    currentY += 4
+    renderArabicText('المنتج', colXName2 - 1, currentY, { align: 'right' })
+    renderArabicText('الكمية', colXQty2 - 1, currentY, { align: 'right' })
+    renderArabicText('السعر', colXPrice2 - 1, currentY, { align: 'right' })
+    renderArabicText('الإجمالي', colXTotal2 - 1, currentY, { align: 'right' })
+    currentY += 3
+    doc.line(tableMargin2, currentY, tableMargin2 + contentWidth, currentY)
+
     let totalAmount = 0
     let totalDiscount = 0
+    const rowHeight2 = 6
 
-    items.forEach((item: any, i: number) => {
-      const itemTotal = Number(item.price) * item.quantity - Number(item.discount || 0)
+    items.forEach((item: any) => {
+      const lineTotal = Number(item.price) * item.quantity
+      const itemTotal = lineTotal - Number(item.discount || 0)
       totalAmount += itemTotal
       totalDiscount += Number(item.discount || 0)
 
-      doc.setFontSize(8)
-      renderArabicText(`${item.name}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 4
-      renderArabicText(
-        `${item.quantity} × ${formatCurrency(item.price)} = ${formatCurrency(itemTotal)}`,
-        pageWidth - margin,
-        currentY,
-        { align: 'right' }
-      )
-      currentY += 6
+      doc.setFontSize(8)
+      const nameText = String(item.name || item.productName || '')
+      renderArabicText(nameText, colXName2 - 1, currentY, { align: 'right', maxWidth: colNameWidth2 - 2 })
+      renderArabicText(String(item.quantity), colXQty2 - 1, currentY, { align: 'right' })
+      renderArabicText(formatCurrency(Number(item.price)), colXPrice2 - 1, currentY, { align: 'right' })
+      renderArabicText(formatCurrency(itemTotal), colXTotal2 - 1, currentY, { align: 'right' })
+      currentY += rowHeight2 - 4
+      doc.setLineWidth(0.1)
+      doc.line(tableMargin2, currentY, tableMargin2 + contentWidth, currentY)
     })
+
+    // Add spacing after table (no extra line) and draw vertical lines
+    const tableBottomY2 = currentY
+    doc.setLineWidth(0.2)
+    const xLeft2 = tableMargin2
+    const xRight2 = tableMargin2 + contentWidth
+    doc.line(xLeft2, tableMargin2 === margin ? (currentY - (rowHeight2 - 4) * items.length - 7) : 0, xLeft2, tableBottomY2)
+    doc.line(colXTotal2, tableMargin2 === margin ? (currentY - (rowHeight2 - 4) * items.length - 7) : 0, colXTotal2, tableBottomY2)
+    doc.line(colXPrice2, tableMargin2 === margin ? (currentY - (rowHeight2 - 4) * items.length - 7) : 0, colXPrice2, tableBottomY2)
+    doc.line(colXQty2, tableMargin2 === margin ? (currentY - (rowHeight2 - 4) * items.length - 7) : 0, colXQty2, tableBottomY2)
+    doc.line(xRight2, tableMargin2 === margin ? (currentY - (rowHeight2 - 4) * items.length - 7) : 0, xRight2, tableBottomY2)
+
+    currentY += 10
 
     // 🔹 Totals
     const taxRate = 0.14
@@ -308,12 +394,12 @@ export async function POST(request: NextRequest) {
     const finalTotal = totalAmount + taxAmount - totalDiscount
 
     doc.setFontSize(10)
-    renderArabicText(`الإجمالي: ${formatCurrency(finalTotal)}`, pageWidth - margin, currentY, { align: 'right' })
-    currentY += 5
     if (taxAmount > 0) {
       renderArabicText(`الضريبة: ${formatCurrency(taxAmount)}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 5
     }
+    renderArabicText(`الإجمالي: ${formatCurrency(finalTotal)}`, pageWidth - margin, currentY, { align: 'right' })
+    currentY += 5
     if (totalDiscount > 0) {
       renderArabicText(`الخصم: ${formatCurrency(totalDiscount)}`, pageWidth - margin, currentY, { align: 'right' })
       currentY += 5

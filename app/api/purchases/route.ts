@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { supplierId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes } = body
+    const { supplierId, items, totalAmount, paidAmount, discount, tax, paymentMethod, notes, isReceiptNote } = body
 
     // Validate required fields
     if (!items || items.length === 0) {
@@ -147,24 +147,25 @@ export async function POST(request: NextRequest) {
       invoiceNumber = (lastNumber + 1).toString()
     }
 
-    // Update product stock
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
-      })
+    // Update product stock unless this is a receipt note (اذن استلام)
+    if (!isReceiptNote) {
+      for (const item of items) {
+        const product = await prisma.product.findUnique({
+          where: { id: item.productId }
+        })
 
-      if (!product) {
-        return NextResponse.json(
-          { error: `المنتج ${item.name} غير موجود` },
-          { status: 400 }
-        )
+        if (!product) {
+          return NextResponse.json(
+            { error: `المنتج ${item.name} غير موجود` },
+            { status: 400 }
+          )
+        }
+
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stock: product.stock + item.quantity }
+        })
       }
-
-      // Update product stock
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { stock: product.stock + item.quantity }
-      })
     }
 
     // Create purchase with items
@@ -174,10 +175,10 @@ export async function POST(request: NextRequest) {
         supplierId: supplierId || null,
         userId: session.user.id,
         totalAmount: parseFloat(totalAmount),
-        paidAmount: parseFloat(paidAmount) || 0,
+        paidAmount: isReceiptNote ? 0 : (parseFloat(paidAmount) || 0),
         discount: parseFloat(discount) || 0,
         tax: parseFloat(tax) || 0,
-        status: 'COMPLETED',
+        status: isReceiptNote ? 'PENDING' : 'COMPLETED',
         paymentMethod,
         notes,
         items: {
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     })
 
     // If supplier exists and this is a credit purchase, update supplier balance
-    if (supplierId && parseFloat(paidAmount) < parseFloat(totalAmount)) {
+    if (!isReceiptNote && supplierId && parseFloat(paidAmount) < parseFloat(totalAmount)) {
       const remainingAmount = parseFloat(totalAmount) - parseFloat(paidAmount)
       await prisma.supplier.update({
         where: { id: supplierId },
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If payment method is CASHBOX, deduct from cashbox
-    if (paymentMethod === 'CASHBOX') {
+    if (!isReceiptNote && paymentMethod === 'CASHBOX') {
       await prisma.cashboxTransaction.create({
         data: {
           type: 'EXPENSE',
