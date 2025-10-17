@@ -1585,7 +1585,7 @@ export default function SalesPage() {
                 className="overflow-y-auto flex-shrink-0"
                 style={{ 
                   height: showCategoryView 
-                    ? 'calc((100vh - 12rem) / 2.8)' // Both sections visible - 1/3 of available space
+                    ? 'calc((100vh - 12rem) / 4.1)' // Both sections visible - 1/3 of available space
                     : 'calc((100vh - 8rem) / 1.9)' // Only products section visible - 1/2 of available space
                 }}
               >
