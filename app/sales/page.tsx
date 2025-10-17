@@ -1538,10 +1538,10 @@ export default function SalesPage() {
           style={{
             height: showInlineProductSelection 
               ? (showCategoryView && showInlineProductSelection
-                  ? 'calc((100vh - 12rem) / 3)' // Both sections visible - 1/3 of available space
-                  : 'calc((100vh - 8rem) / 2)' // Only products section visible - 1/2 of available space
+                  ? 'calc((100vh - 12rem) / 2.5)' // Both sections visible - 1/3 of available space
+                  : 'calc((100vh - 8rem) / 2.5)' // Only products section visible - 1/2 of available space
                 )
-              : 'calc(70vh)' // No sections visible - 70% of viewport height
+              : 'calc(80vh)' // No sections visible - 70% of viewport height
           }}
         >
           <div ref={productsListRef} className="h-full overflow-y-auto">
@@ -1556,7 +1556,7 @@ export default function SalesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(saleItems[screenNumber] || []).map((item) => (
-                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)} style={{ height: showInlineProductSelection ? (showCategoryView ? 'calc((100vh - 12rem) / 9)' : 'calc((100vh - 8rem) / 6)') : '100px' }}>
+                  <tr key={item.productId} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleProductClick(item)} style={{ height: showInlineProductSelection ? (showCategoryView ? 'calc((100vh - 12rem) / 9)' : 'calc((100vh - 8rem) / 9)') : '100px' }}>
                     <td className="px-2 py-4 text-gray-900 font-medium">
                       <div className="truncate text-xs">{item.name}</div>
                     </td>
@@ -1585,8 +1585,8 @@ export default function SalesPage() {
                 className="overflow-y-auto flex-shrink-0"
                 style={{ 
                   height: showCategoryView 
-                    ? 'calc((100vh - 12rem) / 3)' // Both sections visible - 1/3 of available space
-                    : 'calc((100vh - 8rem) / 2)' // Only products section visible - 1/2 of available space
+                    ? 'calc((100vh - 12rem) / 2.8)' // Both sections visible - 1/3 of available space
+                    : 'calc((100vh - 8rem) / 1.9)' // Only products section visible - 1/2 of available space
                 }}
               >
                 <div className="p-1">
